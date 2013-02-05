@@ -269,7 +269,7 @@ implements Target_Selectable
             , array_keys($entity['pgsql_mutable']->getData())
             , array_keys($entity['pgsql_immutable']->getData())
         );
-
+        
         if (is_null($info->getView())) {
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
@@ -502,7 +502,7 @@ implements Target_Selectable
         } 
         else 
         {
-            $array = parse::pg_parse($field);
+            $array = Parse::pg_parse($field);
         }
         if (is_null($array)) return $field;
 
