@@ -17,10 +17,6 @@ implements Target_Selectable
     private $select_index;
     private $select_entity;
 
-    public function validate_entity(Entity $entity)
-    {
-        return $entity instanceof Target_Pgsqlable;    
-    }
 
     /**
      * implements selectable
@@ -69,9 +65,9 @@ implements Target_Selectable
     {   
         $info = $entity->target_pgsql_info();
         $entity['pgsql_mutable']->validate();
-        if (!empty($entity['pgsql_mutable']->problems()))
+        if (count($entity['pgsql_mutable']->problems()))
         {
-            throw new HTTP_Exception_400($entity['pgsql_mutable']->problems());
+            throw new HTTP_Exception_400(var_export($entity['pgsql_mutable']->problems()));
         }
 
         $returning_fields = array_merge(
