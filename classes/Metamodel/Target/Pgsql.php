@@ -69,7 +69,8 @@ implements Target_Selectable
     {   
         $info = $entity->target_pgsql_info();
         $entity['pgsql_mutable']->validate();
-        if (!strlen($entity['pgsql_mutable']->problems()))
+        $problems = $entity['pgsql_mutable']->problems();
+        if (!empty($problems))
         {
             throw new HTTP_Exception_400($entity['pgsql_mutable']->problems());
         }
@@ -134,7 +135,8 @@ implements Target_Selectable
     {
         $info = $entity->target_pgsql_info();
         $entity['pgsql_mutable']->validate();
-        if (count($entity['pgsql_mutable']->problems()))
+        $problems = $entity['pgsql_mutable']->problems();
+        if (!empty($problems))
         {
             throw new HTTP_Exception_400(var_export($entity['pgsql_mutable']->problems()));
         }
