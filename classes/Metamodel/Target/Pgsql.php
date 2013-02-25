@@ -323,8 +323,9 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_exact($entity, $column_name, $param)
+    public function visit_exact($entity, $column_storage_name, $param)
     {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
         // @TODO type check should be against column-type not param-value-type
         if (is_numeric($param)) {
             return sprintf("(%s = %s)", $column_name, $param);
@@ -337,8 +338,9 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */ 
-    public function visit_search($entity, $column_name, $param) 
+    public function visit_search($entity, $column_storage_name, $param) 
     {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
         return sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
         break;
     }
@@ -347,8 +349,9 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_max($entity, $column_name, $param) 
+    public function visit_max($entity, $column_storage_name, $param) 
     {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
         return sprintf("(%s <= %d)", $column_name, $param);
         break;
     }
@@ -357,8 +360,9 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_min($entity, $column_name, $param) 
+    public function visit_min($entity, $column_storage_name, $param) 
     {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
         return sprintf("(%s >= %d)", $column_name, $param);
         break;
     }
@@ -367,8 +371,9 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_range($entity, $column_name, $min, $max) 
+    public function visit_range($entity, $column_storage_name, $min, $max) 
     {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
         return sprintf("(%s BETWEEN %d AND %d)", $column_name, $min, $max);
     }
 
@@ -414,6 +419,21 @@ implements Target_Selectable
     {
         if (empty($limit)) return '';
         return sprintf('LIMIT %d OFFSET %d', $limit, $offset);
+    }
+    
+    /**
+     * Helper for the visit_*() interface that builds WHERE clauses out of selectors.
+     * Responsible for looking up an actual column name as it is seen by Postgres.
+     */
+    private function visit_column_name($entity, $column_storage_name)
+    {
+        foreach(array('key', 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
+        {
+            $column_name = $entity[$view_name]->lookup_storage_name($column_storage_name);
+            if($column_name) return $column_name;
+        }
+        
+        throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $entity->getName() . "\".");
     }
 
     /**
@@ -592,12 +612,9 @@ implements Target_Selectable
     {
         $security = $selector->security;
         
-        foreach(array('pgsql_immutable', 'pgsql_mutable') as $view_name)
+        foreach($entity['selector'] as $column_name => $column)
         {
-            foreach($entity[$view_name] as $column_name => $column)
-            {
-                $security->allow($column_name);
-            }
+            $security->allow($column_name);
         }
     }
     
