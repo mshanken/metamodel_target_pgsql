@@ -40,7 +40,7 @@ implements Target_Selectable
     {
         $info = $entity->target_pgsql_info();
 
-        $sql = sprintf('SELECT count(*) AS count FROM %s', $info->getView());            
+        $sql = sprintf('SELECT count(*) AS count FROM %s', $info->getTable());            
 
         if (!is_null($selector)) 
         {
@@ -54,6 +54,7 @@ implements Target_Selectable
             // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
+        error_log($sql);
         $results = $this->_db->query(Database::SELECT, $sql)->as_array();
         return $results[0]['count'];
     }
@@ -291,6 +292,7 @@ implements Target_Selectable
             $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
+        error_log($sql);
         $this->select_data = $this->_db->query(Database::SELECT, $sql)->as_array();
         $this->select_index = 0;
         $this->select_entity = get_class($entity);
