@@ -12,12 +12,28 @@ Class Metamodel_Target_Pgsql
 extends Model_Database
 implements Target_Selectable
 {
+    /**
+     * Immutable columns are those which are not updatable by clients of this code.  Key and
+     * timestamp columns are the best examples.
+     */
+    const VIEW_IMMUTABLE = 'pgsql_immutable';
+    
+    /**
+     * Mutable columns are those which are updatable by clients of this code.  Most columns are
+     * mutable.
+     */
+    const VIEW_MUTABLE = 'pgsql_mutable';
 
     private $select_data;
     private $select_index;
     private $select_entity;
+    
+    public static function get_key()
+    {
+        return "pgsql";
+    }
 
-    public function validate_entity(Entity $entity)
+    public function validate_entity(Entity_Row $entity)
     {
         return $entity instanceof Target_Pgsqlable;    
     }
@@ -25,7 +41,7 @@ implements Target_Selectable
     /**
      * implements selectable
      */
-    public function select(Entity $e, Selector $selector = null)
+    public function select(Entity_Row $e, Selector $selector = null)
     {
         $this->select_deferred($e, $selector);
         $output = array();
@@ -36,11 +52,11 @@ implements Target_Selectable
     /**
      * implements selectable
      */
-    public function select_count(Entity $entity, Selector $selector = null)
+    public function select_count(Entity_Row $entity, Selector $selector = null)
     {
-        $info = $entity->target_pgsql_info();
+        $info = $entity->get_root()->get_target_info($this);
 
-        $sql = sprintf('SELECT count(*) AS count FROM %s', $info->getView());            
+        $sql = sprintf('SELECT count(*) AS count FROM %s', $info->get_view());            
 
         if (!is_null($selector)) 
         {
@@ -65,44 +81,45 @@ implements Target_Selectable
      * from the contents of $entity[pgsql_mutable + key + timestamp] 
      *
      */
-    public function create(Entity $entity) 
+    public function create(Entity_Row $entity) 
     {   
-        $info = $entity->target_pgsql_info();
-        $entity['pgsql_mutable']->validate();
-        if (strlen($entity['pgsql_mutable']->problems()))
+        $info = $entity->get_root()->get_target_info($this);
+        $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
+        $problems = Logger::get('validation');
+        if(!empty($problems))
         {
-            throw new HTTP_Exception_400($entity['pgsql_mutable']->problems());
+            throw new HTTP_Exception_400(var_export($problems, TRUE));
         }
 
         $returning_fields = array_merge(
-            array_keys($entity['pgsql_mutable']->getData())
-            , array_keys($entity[$info->getKeyView()]->getData())
-            , array_keys($entity[$info->getTimestampView()]->getData())
-            , array_keys($entity['pgsql_immutable']->getData())
+            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
+            , array_keys($entity['key']->to_array())
+            , array_keys($entity['timestamp']->to_array())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
 
-        $mutable_keys = array_keys($entity['pgsql_mutable']->getData());
+        $mutable_keys = array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array());
 
-        if (!is_null($info->getCreateFunction())) 
+        if (!is_null($info->get_create_function())) 
         { 
             $sql = sprintf('SELECT %s FROM %s(:%s)',
-                implode(', ', array_keys($entity['key']->getData()))
-                , $info->getCreateFunction()
+                implode(', ', array_keys($entity['key']->to_array()))
+                , $info->get_create_function()
                 , implode(', :', $mutable_keys)
             );
         } 
         else
         {
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
-                , $info->getTable() 
+                , $info->get_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
-                , implode(', ', array_keys($entity['key']->getData()))
+                , implode(', ', array_keys($entity['key']->to_array()))
             );
             
         }
         $query = $this->query(Database::SELECT, $sql);
-        $query->parameters($this->PDO_params($entity['pgsql_mutable']));
+        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
 
         try 
         {
@@ -130,52 +147,53 @@ implements Target_Selectable
      * if the view has no key/timestamp we add them to the end for updateFunctions
      *
      */
-    public function update(Entity $entity, Selector $selector)
+    public function update(Entity_Row $entity, Selector $selector)
     {
-        $info = $entity->target_pgsql_info();
-        $entity['pgsql_mutable']->validate();
-        if (strlen($entity['pgsql_mutable']->problems()))
+        $info = $entity->get_root()->get_target_info($this);
+        $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
+        $problems = Logger::get('validation');
+        if(!empty($problems))
         {
-            throw new HTTP_Exception_400(var_export($entity['pgsql_mutable']->problems()));
+            throw new HTTP_Exception_400(var_export($problems, TRUE));
         }
 
         $returning_fields = array_merge(
-            array_keys($entity['pgsql_mutable']->getData())
-            , array_keys($entity[$info->getKeyView()]->getData())
-            , array_keys($entity[$info->getTimestampView()]->getData())
-            , array_keys($entity['pgsql_immutable']->getData())
+            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
+            , array_keys($entity['key']->to_array())
+            , array_keys($entity['timestamp']->to_array())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
 
-        if (!is_null($info->getUpdateFunction())) 
+        if (!is_null($info->get_update_function())) 
         { 
             $sp_parameter_fields = array_merge(
-                array_keys($entity[$info->getKeyView()]->getData())
-                , array_keys($entity[$info->getTimestampView()]->getData())
-                , array_keys($entity['pgsql_mutable']->getData())
+                array_keys($entity['key']->to_array())
+                , array_keys($entity['timestamp']->to_array())
+                , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
             );
             $sql = sprintf('SELECT %s FROM %s(:%s)'
-                , implode(', ', array_keys($entity['key']->getData()))
-                , $info->getUpdateFunction()
+                , implode(', ', array_keys($entity['key']->to_array()))
+                , $info->get_update_function()
                 , implode(', :', $sp_parameter_fields)
             );
         } 
         else  
         {
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s'
-                , $info->getTable()
+                , $info->get_table()
                 , implode(', ', array_map(
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
-                    , array_keys($entity['pgsql_mutable']->getData())
+                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
                 ))
                 , $selector->build_target_query($entity, $this)
-                , implode(', ', array_keys($entity['key']->getData()))
+                , implode(', ', array_keys($entity['key']->to_array()))
             );
         }
         $query = $this->query(Database::SELECT, $sql);
-        $query->parameters($this->PDO_params($entity['pgsql_mutable']));
-        $query->parameters($this->PDO_params($entity['pgsql_immutable']));
-        $query->parameters($this->PDO_params($entity[$info->getKeyView()]));
-        $query->parameters($this->PDO_params($entity[$info->getTimestampView()]));
+        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+        $query->parameters($this->PDO_params($entity['key']));
+        $query->parameters($this->PDO_params($entity['timestamp']));
 
         try 
         {
@@ -209,12 +227,12 @@ implements Target_Selectable
      *
      * @returns number of deleted rows
      */
-    public function remove(Entity $e, Selector $selector)
+    public function remove(Entity_Row $e, Selector $selector)
     {
-        $info = $e->target_pgsql_info();
+        $info = $e->get_root()->get_target_info($this);
         $where = $selector->build_target_query($e, $this);
 
-        $sql = sprintf('DELETE FROM %s WHERE %s', $info->getTable(), $where);
+        $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
 
         $query = $this->query(Database::DELETE, $sql);
         try 
@@ -245,55 +263,54 @@ implements Target_Selectable
      *
      * @TODO profile me, i suspect this is slow
      */
-    protected function PDO_params(Entity_View $eview) 
+    protected function PDO_params(Entity_Columnset $eview) 
     {
-        if (count($eview->getData()))
+        $encoded = $this->encode($eview);
+        
+        $result = array();
+        foreach($encoded as $name => $value)
         {
-            return array_combine(
-                array_map(function($a) { return ":$a";}
-                    , array_keys($eview->getData())
-                )
-                , array_map(array($this, 'encode'), (array)$eview)
-            );
+            $result[":" . $name] = $value;
         }
-        return array();
+        
+        return $result;
     }
 
 
 
 
     // select helper
-    public function select_deferred(Entity $entity, Selector $selector = null)
+    public function select_deferred(Entity_Row $entity, Selector $selector = null)
     {
-        $info = $entity->target_pgsql_info();
+        $info = $entity->get_root()->get_target_info($this);
 
         $returning_fields = array_merge(
-            array_keys($entity[$info->getKeyView()]->getData())
-            , array_keys($entity[$info->getTimestampView()]->getData())
-            , array_keys($entity['pgsql_mutable']->getData())
-            , array_keys($entity['pgsql_immutable']->getData())
+            array_keys($entity['key']->to_array())
+            , array_keys($entity['timestamp']->to_array())
+            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
         
-        if (is_null($info->getView())) {
+        if (is_null($info->get_view())) {
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
-        $sql = sprintf('SELECT %s FROM %s', implode(', ', $returning_fields), $info->getView());            
+        $sql = sprintf('SELECT %s FROM %s', implode(', ', $returning_fields), $info->get_view());            
 
         if (!is_null($selector)) 
         {
-            if ($where = $selector->build_target_query($entity, $this))
+            if ($where = $selector->build_target_query($entity->get_root(), $this))
             {
                 if ('()' != $where)
                 {
                     $sql = sprintf('%s WHERE %s', $sql, $where);
                 }
             }
-            $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
+            $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity->get_root(), $this), $selector->build_target_page($entity->get_root(), $this));
         }
 
-        $this->select_data = $this->_db->query(Database::SELECT, $sql)->as_array();
+        $this->select_data = $this->_db->query(Database::SELECT, $sql)->execute()->as_array();
         $this->select_index = 0;
-        $this->select_entity = get_class($entity);
+        $this->select_entity = $entity->get_root();
     }
 
     public function next_row() 
@@ -302,12 +319,12 @@ implements Target_Selectable
         {
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
-            $entity = new $this->select_entity();
-            $info = $entity->target_pgsql_info();
-            $entity[$info->getKeyView()]->setData($row);
-            $entity[$info->getTimestampView()]->setData($row);
-            $entity['pgsql_mutable']->setData($row);
-            $entity['pgsql_immutable']->setData($row);
+            $entity = $this->select_entity->row();
+            $info = $entity->get_root()->get_target_info($this);
+            $entity['key'] = $row;
+            $entity['timestamp'] = $row;
+            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
+            $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
 
             return $entity;
         }
@@ -423,7 +440,7 @@ implements Target_Selectable
     private function query($mode, $sql)
     {
         error_log( $sql );
-        return DB::query($mode, $sql);    
+        return $this->_db->query($mode, $sql);    
     }
 
 
@@ -435,52 +452,59 @@ implements Target_Selectable
      * complex data are flattened into pgsql arrays
      * @TODO migrate away from pgsql array to json format
      */
-    public function encode(Entity_Columnable $column)
+    public function encode(Entity_Structure $view)
     {
-        // redundant in a recursive function ?
-        if (!$column->validate(false)) throw new Exception(sprintf('your data, %s, for column, %s, is invalid', $column->getData(), get_class($column->getType())));
-
-        $value = $column->getData();
-        $type = $column->getType();
-
-        // override point allows type to hijack their encoding...
-        if (method_exists($type, 'transform_target_pgsql'))
+        $result = array();
+        foreach($view as $name => $type)
         {
-            return $type->transform_target_pgsql($value);
-        } 
-        // flatten into an psql array
-        else if ($column instanceof Traversable)
-        {
-            $tmp = array();
-            foreach ($column as $k => $v) 
+            $value = $view->offsetGet($name);
+            
+            // redundant in a recursive function ?
+            if (!$type->validate($value, false)) throw new Exception(sprintf('your data, %s, for column, %s, is invalid', $value, get_class($type)));
+
+            // override point allows type to hijack their encoding...
+            if (method_exists($type, 'transform_target_pgsql'))
             {
-               // $tmp[] = trim($this->encode($v),'"');
-               $tmp[] = addslashes($this->encode($v));
-            }
-            if(count($tmp) == 0) return "{}";
-            return sprintf('{"%s"}', implode('","', $tmp));
-        }
-        // this does not recurse because we only encode Entity_Columnable/Traversable Objects
-        else if (is_array($value))
-        {
-            return sprintf('{%s}', implode(',', $value));
-        }
-        else if ($type instanceof Type_Number) 
-        {
-            return $value;
-        }
-        else if ($type instanceof Type_String) 
-        {
-            $value = trim($value);
-            if (empty($value))
+                $result[$name] = $type->transform_target_pgsql($value);
+            } 
+            // flatten into an psql array
+            else if ($type instanceof Traversable)
             {
-                return NULL; // a null char
-                return 'NULL'; // a literal
+                $tmp = array();
+                foreach ($type as $k => $v) 
+                {
+                   // $tmp[] = trim($this->encode($v),'"');
+                   $tmp[] = addslashes($this->encode($v));
+                }
+                if(count($tmp) == 0) $result[$name] = "{}";
+                else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
             }
-
-            return $value;
-            return pg_escape_string($value);
+            // this does not recurse because we only encode Entity_Columnable/Traversable Objects
+            else if (is_array($value))
+            {
+                $result[$name] = sprintf('{%s}', implode(',', $value));
+            }
+            else if ($type instanceof Type_Number) 
+            {
+                $result[$name] = $value;
+            }
+            else if ($type instanceof Type_String) 
+            {
+                $value = trim($value);
+                if (empty($value))
+                {
+                    $result[$name] = NULL; // a null char
+                    // $result[$name] = 'NULL'; // a literal
+                }
+                else
+                {
+                    $result[$name] = $value;
+                    // $result[$name] = pg_escape_string($value);
+                }
+            }
         }
+        
+        return $result;
     }
 
     /**
@@ -561,7 +585,7 @@ implements Target_Selectable
     /**
      * run some custom sql, return the result
      */
-    public function select_custom(Entity $template_entity, $sql, array $params = array()) 
+    public function select_custom(Entity_Row $template_entity, $sql, array $params = array()) 
     {
         $query = $this->query(Database::SELECT, $sql);
         $query->parameters($params);
@@ -573,14 +597,14 @@ implements Target_Selectable
         }
         
         $entities = array();
-        $info = $template_entity->target_pgsql_info();
+        $info = $template_entity->get_root()->get_target_info($this);
         foreach($results as $row) 
         {
             $entity = clone $template_entity;
-            $entity[$info->getKeyView()]->setData($row);
-            $entity[$info->getTimestampView()]->setData($row);
-            $entity['pgsql_mutable']->setData($row);
-            $entity['pgsql_immutable']->setData($row);
+            $entity['key'] = $row;
+            $entity['timestamp'] = $row;
+            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
+            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
 
             $entities[] = $entity;
         }
@@ -588,11 +612,11 @@ implements Target_Selectable
         return $entities;
     }
 
-    public function selector_security(Entity $entity, Selector $selector)
+    public function selector_security(Entity_Row $entity, Selector $selector)
     {
         $security = $selector->security;
         
-        foreach(array('pgsql_immutable', 'pgsql_mutable') as $view_name)
+        foreach(array(Target_Pgsql::VIEW_IMMUTABLE, Target_Pgsql::VIEW_MUTABLE) as $view_name)
         {
             foreach($entity[$view_name] as $column_name => $column)
             {
