@@ -157,6 +157,11 @@ class Mock_Query
     {
         return $this->_db->actual($this->_sql, $this->_params);
     }
+    
+    public function as_array()
+    {
+        return $this->_db->actual($this->_sql, $this->_params)->as_array();
+    }
 }
 
 class Mock_Result

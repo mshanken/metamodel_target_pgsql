@@ -28,11 +28,6 @@ implements Target_Selectable
     private $select_index;
     private $select_entity;
     
-    public static function get_key()
-    {
-        return "pgsql";
-    }
-
     public function validate_entity(Entity_Row $entity)
     {
         return $entity instanceof Target_Pgsqlable;    
@@ -308,7 +303,7 @@ implements Target_Selectable
             $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity->get_root(), $this), $selector->build_target_page($entity->get_root(), $this));
         }
 
-        $this->select_data = $this->_db->query(Database::SELECT, $sql)->execute()->as_array();
+        $this->select_data = $this->_db->query(Database::SELECT, $sql)->as_array();
         $this->select_index = 0;
         $this->select_entity = $entity->get_root();
     }
