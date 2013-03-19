@@ -185,7 +185,7 @@ implements Target_Selectable
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
                 ))
-                , $selector->build_target_query($entity, $this)
+                , $selector->build_target_query($entity->get_root(), $this)
                 , implode(', ', array_keys($entity['key']->to_array()))
             );
         }
@@ -230,7 +230,7 @@ implements Target_Selectable
     public function remove(Entity_Row $e, Selector $selector)
     {
         $info = $e->get_root()->get_target_info($this);
-        $where = $selector->build_target_query($e, $this);
+        $where = $selector->build_target_query($e->get_root(), $this);
 
         $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
 
@@ -238,7 +238,7 @@ implements Target_Selectable
         try 
         {
             return $query->execute();
-        } catch (Exception $e) {
+        } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
         }
     }
