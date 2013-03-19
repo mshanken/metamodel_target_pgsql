@@ -176,13 +176,80 @@ class Mock_Result
 
 class TargetTest extends Unittest_TestCase
 {
+    public function testSearch()
+    {
+        $mock_database = new Mock_Database();
+        $target = new Target_Pgsql($mock_database);
+        
+        $entity = Entity_Example::factory();
+        $selector = new Selector();
+        
+        $mock_database->expect("SELECT primary_id, modified_at, name, primary_id, modified_at FROM example  ",
+            array(),
+            array(
+                array(
+                    'primary_id' => '171234e3-0993-4e9e-cc03-bb78c85a47b5',
+                    'modified_at' => '2013-03-19 12:22:05',
+                    'name' => 'Row One',
+                ),
+                array(
+                    'primary_id' => '9a64d302-5513-446a-9895-ba5b26f0b2cf',
+                    'modified_at' => '2013-03-19 12:23:14',
+                    'name' => 'Row Two',
+                ),
+            )
+        );
+        
+        $rows = $target->select($entity, $selector);
+        
+        $this->assertInternalType('array', $rows);
+        $this->assertEquals(2, count($rows));
+        $this->assertInstanceOf('Entity_Row', $rows[0]);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('Row One', $rows[0]['api']['name']);
+        $this->assertEquals('9a64d302-5513-446a-9895-ba5b26f0b2cf', $rows[1]['key']['primary_id']);
+        $this->assertEquals('2013-03-19 12:23:14', $rows[1]['timestamp']['modified_at']);
+        $this->assertEquals('Row Two', $rows[1]['api']['name']);
+    }
+
+    public function testDetails()
+    {
+        $mock_database = new Mock_Database();
+        $target = new Target_Pgsql($mock_database);
+        
+        $entity = Entity_Example::factory();
+        $selector = new Selector();
+        $selector->exact('primary_id', '171234e3-0993-4e9e-cc03-bb78c85a47b5');
+        
+        $mock_database->expect("SELECT primary_id, modified_at, name, primary_id, modified_at FROM example WHERE ((primary_id = '171234e3-0993-4e9e-cc03-bb78c85a47b5'))  ",
+            array(),
+            array(
+                array(
+                    'primary_id' => '171234e3-0993-4e9e-cc03-bb78c85a47b5',
+                    'modified_at' => '2013-03-19 12:22:05',
+                    'name' => 'Row One',
+                ),
+            )
+        );
+        
+        $rows = $target->select($entity, $selector);
+        
+        $this->assertInternalType('array', $rows);
+        $this->assertEquals(1, count($rows));
+        $this->assertInstanceOf('Entity_Row', $rows[0]);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('Row One', $rows[0]['api']['name']);
+    }
+    
     public function testPgsqlCreate()
     {
         $mock_database = new Mock_Database();
         $target = new Target_Pgsql($mock_database);
         
         $entity = Entity_Example::factory();
-        $entity['timestamp']['modified_at'] = '2013-03-18';
+        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'An Entity';
         
         $mock_database->expect
@@ -203,7 +270,7 @@ class TargetTest extends Unittest_TestCase
                 array(
                     array(
                         'name' => 'An Entity',
-                        'modified_at' => '2013-03-18',
+                        'modified_at' => '2013-03-19 12:22:05',
                         'primary_id' => 'e0209f19-d8c5-4ccf-945e-38700c375add',  
                     ),
                 )
@@ -218,5 +285,69 @@ class TargetTest extends Unittest_TestCase
         $this->assertInternalType('string', $created['key']['primary_id']);
     $this->assertRegExp('/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/', $created['key']['primary_id']);
         $this->assertEquals('e0209f19-d8c5-4ccf-945e-38700c375add', $created['key']['primary_id']);
+    }
+    
+    public function testUpdate()
+    {
+        $mock_database = new Mock_Database();
+        $target = new Target_Pgsql($mock_database);
+        
+        $entity = Entity_Example::factory();
+        $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
+        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
+        $entity['api']['name'] = 'Row One renamed';
+        
+        $selector = new Selector();
+        $selector->exact('primary_id', '171234e3-0993-4e9e-cc03-bb78c85a47b5');
+        
+        $mock_database->expect("UPDATE example SET \"name\" = :name WHERE ((primary_id = '171234e3-0993-4e9e-cc03-bb78c85a47b5')) RETURNING primary_id",
+            array(
+                'name' => 'Row One renamed',
+                'primary_id' => '171234e3-0993-4e9e-cc03-bb78c85a47b5',
+                'modified_at' => '2013-03-19 12:22:05'
+            ),
+            array(
+            )
+        );
+        $mock_database->expect("SELECT primary_id, modified_at, name, primary_id, modified_at FROM example WHERE ((primary_id = '171234e3-0993-4e9e-cc03-bb78c85a47b5'))  ",
+            array(),
+            array(
+                array(
+                    'primary_id' => '171234e3-0993-4e9e-cc03-bb78c85a47b5',
+                    'modified_at' => '2013-03-19 12:22:05',
+                    'name' => 'Row One renamed',
+                ),
+            )
+        );
+        
+        $rows = $target->update($entity, $selector);
+        
+        $this->assertInternalType('array', $rows);
+        $this->assertEquals(1, count($rows));
+        $this->assertInstanceOf('Entity_Row', $rows[0]);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('Row One renamed', $rows[0]['api']['name']);
+    }
+    
+    public function testDelete()
+    {
+        $mock_database = new Mock_Database();
+        $target = new Target_Pgsql($mock_database);
+        
+        $entity = Entity_Example::factory();
+        $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
+        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
+        $entity['api']['name'] = 'Row One renamed';
+        
+        $selector = new Selector();
+        $selector->exact('primary_id', '171234e3-0993-4e9e-cc03-bb78c85a47b5');
+        
+        $mock_database->expect("DELETE FROM example WHERE ((primary_id = '171234e3-0993-4e9e-cc03-bb78c85a47b5'))",
+            array(),
+            array()
+        );
+        
+        $target->remove($entity, $selector);
     }
 }
