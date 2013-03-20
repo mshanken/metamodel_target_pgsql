@@ -25,9 +25,10 @@ extends Entity_Root
         
         $this->freeze();
         
+        $target = new Target_Pgsql();
         $pgsql = new Target_Info_Pgsql();
         $pgsql->set_table('example');
-        $this->set_target_info($pgsql);
+        $this->set_target_info($target, $pgsql);
     }
 
 }
