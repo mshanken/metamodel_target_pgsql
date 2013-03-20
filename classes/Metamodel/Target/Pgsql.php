@@ -450,9 +450,9 @@ implements Target_Selectable
     public function encode(Entity_Structure $view)
     {
         $result = array();
-        foreach($view as $name => $type)
+        foreach($view as $name => $value)
         {
-            $value = $view->offsetGet($name);
+            $type = $view->get_type($name);
             
             // redundant in a recursive function ?
             if (!$type->validate($value, false)) throw new Exception(sprintf('your data, %s, for column, %s, is invalid', $value, get_class($type)));
