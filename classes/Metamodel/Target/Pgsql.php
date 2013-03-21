@@ -88,8 +88,8 @@ implements Target_Selectable
 
         $returning_fields = array_merge(
             array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
-            , array_keys($entity['key']->to_array())
-            , array_keys($entity['timestamp']->to_array())
+            , array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
+            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
             , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
 
@@ -98,7 +98,7 @@ implements Target_Selectable
         if (!is_null($info->get_create_function())) 
         { 
             $sql = sprintf('SELECT %s FROM %s(:%s)',
-                implode(', ', array_keys($entity['key']->to_array()))
+                implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
                 , $info->get_create_function()
                 , implode(', :', $mutable_keys)
             );
@@ -109,7 +109,7 @@ implements Target_Selectable
                 , $info->get_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
-                , implode(', ', array_keys($entity['key']->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
             );
             
         }
@@ -154,20 +154,20 @@ implements Target_Selectable
 
         $returning_fields = array_merge(
             array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
-            , array_keys($entity['key']->to_array())
-            , array_keys($entity['timestamp']->to_array())
+            , array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
+            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
             , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
 
         if (!is_null($info->get_update_function())) 
         { 
             $sp_parameter_fields = array_merge(
-                array_keys($entity['key']->to_array())
-                , array_keys($entity['timestamp']->to_array())
+                array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
+                , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
                 , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
             );
             $sql = sprintf('SELECT %s FROM %s(:%s)'
-                , implode(', ', array_keys($entity['key']->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
                 , $info->get_update_function()
                 , implode(', :', $sp_parameter_fields)
             );
@@ -181,14 +181,14 @@ implements Target_Selectable
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
                 ))
                 , $selector->build_target_query($entity->get_root(), $this)
-                , implode(', ', array_keys($entity['key']->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
             );
         }
         $query = $this->query(Database::SELECT, $sql);
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-        $query->parameters($this->PDO_params($entity['key']));
-        $query->parameters($this->PDO_params($entity['timestamp']));
+        $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+        $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
 
         try 
         {
@@ -280,8 +280,8 @@ implements Target_Selectable
         $info = $entity->get_root()->get_target_info($this);
 
         $returning_fields = array_merge(
-            array_keys($entity['key']->to_array())
-            , array_keys($entity['timestamp']->to_array())
+            array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
+            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
             , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
             , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
         );
@@ -293,19 +293,19 @@ implements Target_Selectable
 
         if (!is_null($selector)) 
         {
-            if ($where = $selector->build_target_query($entity->get_root(), $this))
+            if ($where = $selector->build_target_query($entity, $this))
             {
                 if ('()' != $where)
                 {
                     $sql = sprintf('%s WHERE %s', $sql, $where);
                 }
             }
-            $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity->get_root(), $this), $selector->build_target_page($entity->get_root(), $this));
+            $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
         $this->select_data = $this->_db->query(Database::SELECT, $sql)->as_array();
         $this->select_index = 0;
-        $this->select_entity = $entity->get_root();
+        $this->select_entity = $entity;
     }
 
     public function next_row() 
@@ -314,10 +314,11 @@ implements Target_Selectable
         {
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
-            $entity = $this->select_entity->row();
+            $entity = $this->select_entity;
             $info = $entity->get_root()->get_target_info($this);
-            $entity['key'] = $row;
-            $entity['timestamp'] = $row;
+
+            $entity[Entity_Root::VIEW_KEY] = $row;
+            $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
             $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
 
@@ -596,8 +597,8 @@ implements Target_Selectable
         foreach($results as $row) 
         {
             $entity = clone $template_entity;
-            $entity['key'] = $row;
-            $entity['timestamp'] = $row;
+            $entity[Entity_Root::VIEW_KEY] = $row;
+            $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
 
@@ -607,17 +608,4 @@ implements Target_Selectable
         return $entities;
     }
 
-    public function selector_security(Entity_Row $entity, Selector $selector)
-    {
-        $security = $selector->security;
-        
-        foreach(array(Target_Pgsql::VIEW_IMMUTABLE, Target_Pgsql::VIEW_MUTABLE) as $view_name)
-        {
-            foreach($entity[$view_name] as $column_name => $column)
-            {
-                $security->allow($column_name);
-            }
-        }
-    }
-    
 }
