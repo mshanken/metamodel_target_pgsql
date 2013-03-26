@@ -67,7 +67,7 @@ implements Target_Selectable
             // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
-        $results = $this->query(Database::SELECT, $sql)->as_array();
+        $results = $this->query(Database::SELECT, $sql)->execute()->as_array();
         return $results[0]['count'];
     }
 
