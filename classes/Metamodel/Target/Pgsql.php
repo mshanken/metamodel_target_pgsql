@@ -36,9 +36,10 @@ implements Target_Selectable
     /**
      * implements selectable
      */
-    public function select(Entity_Row $e, Selector $selector = null)
+    public function select(Entity_Row $entity, Selector $selector = null)
     {
-        $this->select_deferred($e, $selector);
+        $entity = clone $entity;
+        $this->select_deferred($entity, $selector);
         $output = array();
         while ($curr = $this->next_row()) $output[] = $curr;
         return $output;
@@ -49,6 +50,7 @@ implements Target_Selectable
      */
     public function select_count(Entity_Row $entity, Selector $selector = null)
     {
+        $entity = clone $entity;
         $info = $entity->get_root()->get_target_info($this);
 
         $sql = sprintf('SELECT count(*) AS count FROM %s', $info->get_view());            
@@ -65,7 +67,7 @@ implements Target_Selectable
             // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
-        $results = $this->_db->query(Database::SELECT, $sql)->as_array();
+        $results = $this->query(Database::SELECT, $sql)->as_array();
         return $results[0]['count'];
     }
 
@@ -78,6 +80,7 @@ implements Target_Selectable
      */
     public function create(Entity_Row $entity) 
     {   
+        $entity = clone $entity;
         $info = $entity->get_root()->get_target_info($this);
         $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
@@ -144,6 +147,7 @@ implements Target_Selectable
      */
     public function update(Entity_Row $entity, Selector $selector)
     {
+        $entity = clone $entity;
         $info = $entity->get_root()->get_target_info($this);
         $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
@@ -180,7 +184,7 @@ implements Target_Selectable
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
                 ))
-                , $selector->build_target_query($entity->get_root(), $this)
+                , $selector->build_target_query($entity, $this)
                 , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
             );
         }
@@ -222,10 +226,11 @@ implements Target_Selectable
      *
      * @returns number of deleted rows
      */
-    public function remove(Entity_Row $e, Selector $selector)
+    public function remove(Entity_Row $entity, Selector $selector)
     {
-        $info = $e->get_root()->get_target_info($this);
-        $where = $selector->build_target_query($e->get_root(), $this);
+        $entity = clone $entity;
+        $info = $entity->get_root()->get_target_info($this);
+        $where = $selector->build_target_query($entity, $this);
 
         $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
 
@@ -303,7 +308,7 @@ implements Target_Selectable
             $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
 
-        $this->select_data = $this->_db->query(Database::SELECT, $sql)->as_array();
+        $this->select_data = $this->query(Database::SELECT, $sql)->execute()->as_array();
         $this->select_index = 0;
         $this->select_entity = $entity;
     }
@@ -436,7 +441,7 @@ implements Target_Selectable
     private function query($mode, $sql)
     {
         error_log( $sql );
-        return $this->_db->query($mode, $sql);    
+        return DB::query($mode, $sql);    
     }
 
 
@@ -450,13 +455,15 @@ implements Target_Selectable
      */
     public function encode(Entity_Structure $view)
     {
+        $children = $view->get_children();
+        
         $result = array();
         foreach($view as $name => $value)
         {
-            $type = $view->get_type($name);
+            $type = $children[$name];
             
             // redundant in a recursive function ?
-            if (!$type->validate($value, false)) throw new Exception(sprintf('your data, %s, for column, %s, is invalid', $value, get_class($type)));
+            if (!$type->validate($value, false)) throw new Exception(sprintf('your data, %s, for column %s %s, is invalid', $value, $name, get_class($type)));
 
             // override point allows type to hijack their encoding...
             if (method_exists($type, 'transform_target_pgsql'))
