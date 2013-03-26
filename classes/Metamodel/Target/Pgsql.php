@@ -457,35 +457,46 @@ implements Target_Selectable
     {
         $children = $view->get_children();
         
+        $view->validate();
+        
         $result = array();
         foreach($view as $name => $value)
         {
             $type = $children[$name];
             
-            // redundant in a recursive function ?
-            if (!$type->validate($value, false)) throw new Exception(sprintf('your data, %s, for column %s %s, is invalid', $value, $name, get_class($type)));
-
             // override point allows type to hijack their encoding...
             if (method_exists($type, 'transform_target_pgsql'))
             {
                 $result[$name] = $type->transform_target_pgsql($value);
             } 
+            // this does not recurse because we only encode Entity_Columnable/Traversable Objects
+            else if ($value instanceof Entity_Array_Simple) // was is_array($value)
+            {
+                $concatenated = '{';
+                foreach($value as $index => $subvalue)
+                {
+                    if($index > 0)
+                    {
+                        $concatenated .= ',';
+                    }
+                    $concatenated .= $subvalue;
+                }
+                $concatenated .= '}';
+                
+                $result[$name] = $concatenated;
+            }
             // flatten into an psql array
-            else if ($type instanceof Traversable)
+            else if ($value instanceof Traversable)
             {
                 $tmp = array();
-                foreach ($type as $k => $v) 
+                foreach ($value as $k => $v) 
                 {
                    // $tmp[] = trim($this->encode($v),'"');
+                   // @TODO investigate what this addslashes() call is doing for us
                    $tmp[] = addslashes($this->encode($v));
                 }
                 if(count($tmp) == 0) $result[$name] = "{}";
                 else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
-            }
-            // this does not recurse because we only encode Entity_Columnable/Traversable Objects
-            else if (is_array($value))
-            {
-                $result[$name] = sprintf('{%s}', implode(',', $value));
             }
             else if ($type instanceof Type_Number) 
             {
