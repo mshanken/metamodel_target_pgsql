@@ -319,7 +319,7 @@ implements Target_Selectable
         {
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
-            $entity = $this->select_entity;
+            $entity = clone $this->select_entity;
             $info = $entity->get_root()->get_target_info($this);
 
             $entity[Entity_Root::VIEW_KEY] = $row;
