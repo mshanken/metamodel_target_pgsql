@@ -491,9 +491,7 @@ implements Target_Selectable
                 $tmp = array();
                 foreach ($value as $k => $v) 
                 {
-                   // $tmp[] = trim($this->encode($v),'"');
-                   // @TODO investigate what this addslashes() call is doing for us
-                   $tmp[] = addslashes($this->encode($v));
+                   $tmp[] = $this->addslashes($this->encode($v));
                 }
                 if(count($tmp) == 0) $result[$name] = "{}";
                 else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
@@ -519,6 +517,28 @@ implements Target_Selectable
         }
         
         return $result;
+    }
+    
+    function addslashes($data)
+    {
+        if(is_string($data))
+        {
+            return strtr($data, array('\'' => '\\\'', '"' => '\\"', '\\' => '\\\\'));
+        }
+        else if(is_array($data))
+        {
+            $result = array();
+            foreach($data as $key => $value)
+            {
+                $result[$key] = $this->addslashes($value);
+            }
+            if(count($result) == 0) return "{}";
+            else return sprintf('{"%s"}', implode('","', $result));
+        }
+        else
+        {
+            return $data;
+        }
     }
 
     /**
