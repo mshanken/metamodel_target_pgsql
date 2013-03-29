@@ -41,7 +41,10 @@ implements Target_Selectable
         $entity = clone $entity;
         $this->select_deferred($entity, $selector);
         $output = array();
-        while ($curr = $this->next_row()) $output[] = $curr;
+        while ($curr = $this->next_row())
+        {
+            $output[] = $curr;
+        }
         return $output;
     }
     
@@ -320,13 +323,12 @@ implements Target_Selectable
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
             $entity = clone $this->select_entity;
-            $info = $entity->get_root()->get_target_info($this);
+//            $info = $entity->get_root()->get_target_info($this);
 
             $entity[Entity_Root::VIEW_KEY] = $row;
             $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
             $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
-
             return $entity;
         }
         return false;
