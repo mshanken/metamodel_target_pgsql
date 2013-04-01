@@ -580,7 +580,7 @@ implements Target_Selectable
         // echo "<li>$field";var_dump($array);
         return $array;
     }
-
+    
     // help with pgsql exceptions
     private function handle_exception(Kohana_Database_Exception  $e)
     {
