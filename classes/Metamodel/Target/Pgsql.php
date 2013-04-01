@@ -93,18 +93,18 @@ implements Target_Selectable
         }
 
         $returning_fields = array_merge(
-            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
-            , array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
-            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
+            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
         );
 
-        $mutable_keys = array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array());
+        $mutable_keys = array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children());
 
         if (!is_null($info->get_create_function())) 
         { 
             $sql = sprintf('SELECT %s FROM %s(:%s)',
-                implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
+                implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
                 , $info->get_create_function()
                 , implode(', :', $mutable_keys)
             );
@@ -115,7 +115,7 @@ implements Target_Selectable
                 , $info->get_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
             );
             
         }
@@ -160,21 +160,21 @@ implements Target_Selectable
         }
 
         $returning_fields = array_merge(
-            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
-            , array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
-            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
+            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
         );
 
         if (!is_null($info->get_update_function())) 
         { 
             $sp_parameter_fields = array_merge(
-                array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
-                , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
-                , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
+                array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
+                , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+                , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
             );
             $sql = sprintf('SELECT %s FROM %s(:%s)'
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
                 , $info->get_update_function()
                 , implode(', :', $sp_parameter_fields)
             );
@@ -185,10 +185,10 @@ implements Target_Selectable
                 , $info->get_table()
                 , implode(', ', array_map(
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
-                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
+                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
                 ))
                 , $selector->build_target_query($entity, $this)
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->to_array()))
+                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
             );
         }
         $query = $this->query(Database::SELECT, $sql);
@@ -288,10 +288,10 @@ implements Target_Selectable
         $info = $entity->get_root()->get_target_info($this);
 
         $returning_fields = array_merge(
-            array_keys($entity[Entity_Root::VIEW_KEY]->to_array())
-            , array_keys($entity[Entity_Root::VIEW_TS]->to_array())
-            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->to_array())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->to_array())
+            array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
         );
         
         if (is_null($info->get_view())) {
