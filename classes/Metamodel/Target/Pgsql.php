@@ -448,7 +448,7 @@ implements Target_Selectable
     {
         foreach(array('key', 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
         {
-            $column_name = $entity[$view_name]->lookup_storage_name($column_storage_name);
+            $column_name = $entity[$view_name]->lookup_entanglement_name($column_storage_name);
             if($column_name) return $column_name;
         }
         
