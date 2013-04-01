@@ -493,7 +493,14 @@ implements Target_Selectable
                 $tmp = array();
                 foreach ($value as $k => $v) 
                 {
-                   $tmp[] = $this->addslashes($this->encode($v));
+                    if(is_string($v))
+                    {
+                        $tmp[] = $this->addslashes($v);
+                    }
+                    else
+                    {
+                        $tmp[] = $this->addslashes($this->encode($v));
+                    }
                 }
                 if(count($tmp) == 0) $result[$name] = "{}";
                 else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
