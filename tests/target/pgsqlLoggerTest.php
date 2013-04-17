@@ -251,7 +251,7 @@ class TargetTest extends Unittest_TestCase
         $selector = new Selector();
         $selector->exact('two_id', 'db864da4-9a1e-44d0-976d-ec66c55e4f93');
 
-        $mock_database->expect("UPDATE example_one SET \"two\" = :two WHERE ((two_id = 'db864da4-9a1e-44d0-976d-ec66c55e4f93')) RETURNING two_id",
+        $mock_database->expect("UPDATE example_two SET \"two\" = :two WHERE ((two_id = 'db864da4-9a1e-44d0-976d-ec66c55e4f93')) RETURNING two_id",
             array(
                 'two' => 'Two!',
                 'two_id' => null,
@@ -267,5 +267,7 @@ class TargetTest extends Unittest_TestCase
         $target->update($two, $selector);
         
         // The test is that we can get this far without error.
+        // There was at one time a bug in the way Target_Pgsql used Logger which caused it to
+        // break, so this test is for the regression.
     }
 }
