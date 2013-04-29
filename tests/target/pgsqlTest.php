@@ -8,20 +8,25 @@ extends Entity_Root
         parent::__construct('example');    
         
         $this['key'] = new Entity_Columnset('key');
-        $this['key']['primary_id'] = new Entity_Column('primary_id', Type::instance('uuid'), Entity_Columnset::REQUIRED);
+        $this['key']['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
+        $this['key']->set_required('primary_id');
     
         $this['timestamp'] = new Entity_Columnset('timestamp');
-        $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::instance('date'), Entity_Columnset::REQUIRED);
+        $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
+        $this['timestamp']->set_required('modified_at');
 
         $this['api'] = new Entity_Columnset('api');
-        $this['api']['name'] = new Entity_Column('name', Type::instance('string'));
+        $this['api']['name'] = new Entity_Column('name', Type::factory('string'));
+        
+        $this['selector'] = new Entity_Columnset('selector');
+        $this['selector']['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
         
         $this[Target_Pgsql::VIEW_IMMUTABLE] = new Entity_Columnset('pgsql_mutable');
-        $this[Target_Pgsql::VIEW_IMMUTABLE]['primary_id'] = new Entity_Column('primary_id', Type::instance('uuid'), Entity_Columnset::REQUIRED);
-        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::instance('date'), Entity_Columnset::REQUIRED);
+        $this[Target_Pgsql::VIEW_IMMUTABLE]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'), Entity_Columnset::REQUIRED);
+        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'), Entity_Columnset::REQUIRED);
                 
         $this[Target_Pgsql::VIEW_MUTABLE] = new Entity_Columnset('pgsql_mutable');
-        $this[Target_Pgsql::VIEW_MUTABLE]['name'] = new Entity_Column('name', Type::instance('string'));
+        $this[Target_Pgsql::VIEW_MUTABLE]['name'] = new Entity_Column('name', Type::factory('string'));
         
         $this->freeze();
         
