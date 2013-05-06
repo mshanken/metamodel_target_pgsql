@@ -688,5 +688,10 @@ implements Target_Selectable
         
         return $entities;
     }
+    
+    public function debug_info()
+    {
+        return NULL;
+    }
 
 }
