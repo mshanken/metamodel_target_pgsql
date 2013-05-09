@@ -114,13 +114,22 @@ implements Target_Selectable
                 , implode(', :', $mutable_keys)
             );
         } 
-        else
+        else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
         {
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
                 , $info->get_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
                 , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
+            );
+            
+        }
+        else
+        {
+            $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s)'
+                , $info->get_table() 
+                , implode(', ', $mutable_keys)
+                , implode(', :', $mutable_keys) 
             );
             
         }
@@ -185,7 +194,7 @@ implements Target_Selectable
                 , implode(', :', $sp_parameter_fields)
             );
         } 
-        else  
+        else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
         {
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s'
                 , $info->get_table()
@@ -195,6 +204,17 @@ implements Target_Selectable
                 ))
                 , $selector->build_target_query($entity, $this)
                 , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
+            );
+        }
+        else
+        {
+            $sql = sprintf('UPDATE %s SET %s WHERE %s'
+                , $info->get_table()
+                , implode(', ', array_map(
+                    function($a) {return sprintf('"%s" = :%s', $a, $a);}
+                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                ))
+                , $selector->build_target_query($entity, $this)
             );
         }
         $query = $this->query(Database::SELECT, $sql);
