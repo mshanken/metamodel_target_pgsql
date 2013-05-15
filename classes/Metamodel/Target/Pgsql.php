@@ -224,8 +224,6 @@ implements Target_Selectable
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
         $results = $query->execute()->as_array();
 
-        $results = $query->execute()->as_array();
-
         try 
         {
             $row = array_shift($results);
