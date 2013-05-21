@@ -222,8 +222,6 @@ implements Target_Selectable
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
-        $query->execute();
-
         $results = $query->execute()->as_array();
 
         try 
