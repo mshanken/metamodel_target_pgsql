@@ -408,6 +408,16 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
+    public function visit_isnull($entity, $column_storage_name) 
+    {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
+        return sprintf("(%s IS NULL)", $column_name);
+    }
+
+    /**
+     * satisfy selector visitor interface
+     *
+     */
     public function visit_operator_and($entity, array $parts) 
     {
         return sprintf('(%s)', implode(') AND (', $parts));
