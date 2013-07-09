@@ -27,6 +27,12 @@ implements Target_Selectable
     private $select_data;
     private $select_index;
     private $select_entity;
+    private $_debug_db;
+    
+    public function __construct($debug_db = null)
+    {
+        $this->_debug_db = $debug_db;
+    }
     
     public function validate_entity(Entity_Row $entity)
     {
@@ -138,6 +144,7 @@ implements Target_Selectable
             $this->handle_exception($e);
         }
 
+        Logger::reset('validation');
         return $entity;    
     }
 
@@ -219,6 +226,7 @@ implements Target_Selectable
             $this->handle_exception($e);
         }
 
+        Logger::reset('validation');
         return $out;
     }
 
@@ -400,6 +408,16 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
+    public function visit_isnull($entity, $column_storage_name) 
+    {
+        $column_name = $this->visit_column_name($entity, $column_storage_name);
+        return sprintf("(%s IS NULL)", $column_name);
+    }
+
+    /**
+     * satisfy selector visitor interface
+     *
+     */
     public function visit_operator_and($entity, array $parts) 
     {
         return sprintf('(%s)', implode(') AND (', $parts));
@@ -462,7 +480,14 @@ implements Target_Selectable
     private function query($mode, $sql)
     {
         error_log( $sql );
-        return DB::query($mode, $sql);    
+        if(!is_null($this->_debug_db))
+        {
+            return $this->_debug_db->query($mode, $sql);
+        }
+        else
+        {
+            return DB::query($mode, $sql);    
+        }
     }
 
 
@@ -672,6 +697,11 @@ implements Target_Selectable
         }
         
         return $entities;
+    }
+    
+    public function debug_info()
+    {
+        return NULL;
     }
 
 }
