@@ -203,23 +203,16 @@ implements Target_Selectable
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
 
+        $results = $query->execute()->as_array();
+
         try 
         {
-            $subselectors = array();
-            $results = $query->execute()->as_array();
-            foreach ($results as $rownum=>$row)
-            {
-                $sub_selector = new Selector();
-                $row = $this->decode($row);
-                foreach ($row as $k => $v) {
-                    $sub_selector->exact($k, $v);
-                }
-                if ($selector) 
-                {
-                    $selector = Selector::union(array($selector, $sub_selector));
-                } else {
-                    $selector = $sub_selector;
-                }
+            $row = array_shift($results);
+            $row = $this->decode($row);
+
+            $selector = new Selector();
+            foreach ($row as $k => $v) {
+                $selector->exact($k, $v);
             }
             $out = $this->select($entity, $selector);
         } catch (Kohana_Database_Exception $e) {
