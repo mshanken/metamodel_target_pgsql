@@ -633,11 +633,11 @@ implements Target_Selectable
                 }
             }
         } 
-        else if ($field == 't')
+        else if ($field === 't')
         {
             return true;
         }
-        else if ($field == 'f') 
+        else if ($field === 'f') 
         {
             return false;
         }
@@ -649,6 +649,7 @@ implements Target_Selectable
         if (is_null($array)) return $field;
 
         // echo "<li>$field";var_dump($array);
+
         return $array;
     }
     
