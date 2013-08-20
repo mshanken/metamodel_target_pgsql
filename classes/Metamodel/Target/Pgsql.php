@@ -579,6 +579,12 @@ implements Target_Selectable
                     // $result[$name] = pg_escape_string($value);
                 }
             }
+            else if ($type instanceof Type_Boolean) 
+            {
+                // encode boolean to string value
+                $result[$name] = $value ? 'true' : 'false';
+            }
+
         }
         
         return $result;
@@ -627,13 +633,23 @@ implements Target_Selectable
                 }
             }
         } 
-        else 
+        else if ($field === 't')
+        {
+            return true;
+        }
+        else if ($field === 'f') 
+        {
+            return false;
+        }
+        else
         {
             $array = Parse::pg_parse($field);
         }
+
         if (is_null($array)) return $field;
 
         // echo "<li>$field";var_dump($array);
+
         return $array;
     }
     
