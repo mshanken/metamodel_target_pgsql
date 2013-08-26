@@ -391,7 +391,11 @@ implements Target_Selectable
     public function visit_max($entity, $column_storage_name, $param) 
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name);
-        return sprintf("(%s <= %d)", $column_name, $param);
+        if (is_numeric($param))
+            return sprintf("(%s <= %d)", $column_name, $param);
+        else
+            // handles dates
+            return sprintf("(%s <= '%s')", $column_name, $param);
         break;
     }
 
@@ -402,7 +406,11 @@ implements Target_Selectable
     public function visit_min($entity, $column_storage_name, $param) 
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name);
-        return sprintf("(%s >= %d)", $column_name, $param);
+        if (is_numeric($param))
+            return sprintf("(%s >= %d)", $column_name, $param);
+        else
+            // handles dates
+            return sprintf("(%s >= '%s')", $column_name, $param);
         break;
     }
 
@@ -413,7 +421,13 @@ implements Target_Selectable
     public function visit_range($entity, $column_storage_name, $min, $max) 
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name);
-        return sprintf("(%s BETWEEN %d AND %d)", $column_name, $min, $max);
+        if (is_numeric($min) && is_numeric($max))
+            return sprintf("(%s BETWEEN %d AND %d)", $column_name, $min, $max);
+        else
+            // handles dates
+            return sprintf("(%s BETWEEN '%s' AND '%s')", $column_name, $min, $max);
+        break;
+
     }
 
     /**
