@@ -318,6 +318,9 @@ class TargetTest extends Unittest_TestCase
                 'modified_at' => '2013-03-19 12:22:05'
             ),
             array(
+                array(
+                    'primary_id' => '171234e3-0993-4e9e-cc03-bb78c85a47b5',
+                ),
             )
         );
         $mock_database->expect("SELECT primary_id, modified_at, name, primary_id, modified_at FROM example WHERE ((primary_id = '171234e3-0993-4e9e-cc03-bb78c85a47b5'))  ",
