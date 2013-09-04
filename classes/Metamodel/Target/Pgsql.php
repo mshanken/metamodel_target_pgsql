@@ -359,6 +359,53 @@ implements Target_Selectable
     }
 
     /**
+     * Return an array of valid methods which can be performed on the given type,
+     * as defined by constants in the Selector class.
+     */
+    public function selector_security(Type_Typeable $type) {
+        if($type instanceof Type_FreeText)
+        {
+            return array(
+                Selector::SEARCH,
+                Selector::SORT,
+                Selector::ISNULL,
+            );
+        } 
+        else if ($type instanceof Type_Number)
+        {
+            return array(
+                Selector::SEARCH,
+                Selector::EXACT,
+                Selector::RANGE_MAX,
+                Selector::RANGE_MIN,
+                Selector::RANGE,
+                Selector::ISNULL,
+                Selector::SORT,
+            );
+        } 
+        else if ($type instanceof Type_Date)
+        {
+            return array(
+                Selector::EXACT,
+                Selector::RANGE_MAX,
+                Selector::RANGE_MIN,
+                Selector::RANGE,
+                Selector::SORT,
+            );
+
+        }
+        else if ($type instanceof Type_Typeable)
+        {
+            return array(
+                Selector::SEARCH,
+                Selector::EXACT,
+                Selector::ISNULL,
+                Selector::SORT,
+            );
+        } 
+    }
+
+    /**
      * satisfy selector visitor interface
      *
      */
