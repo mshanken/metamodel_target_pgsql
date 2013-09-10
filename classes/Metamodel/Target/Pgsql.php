@@ -362,7 +362,7 @@ implements Target_Selectable
      * Return an array of valid methods which can be performed on the given type,
      * as defined by constants in the Selector class.
      */
-    public function visit_selector_security(Type_Typeable $type) {
+    public function visit_selector_security(Type_Typeable $type, bool $sortable) {
         if($type instanceof Type_FreeText)
         {
             return array(
