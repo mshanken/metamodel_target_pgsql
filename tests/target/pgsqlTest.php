@@ -1,6 +1,6 @@
 <?php
 
-class Entity_Example
+class Entity_Example_Pgsql
 extends Entity_Root
 {
     public function __construct()
@@ -38,7 +38,7 @@ extends Entity_Root
 
 }
 
-class Mock_Database
+class Mock_Database_Pgsql
 extends Kohana_Database
 {
     private $_expectations = array();
@@ -84,19 +84,19 @@ extends Kohana_Database
     
     public function query($type, $sql, $as_object = false, array $params = NULL)
     {
-        return new Mock_Query($this, $type, $sql, $as_object, $params);
+        return new Mock_Query_Pgsql($this, $type, $sql, $as_object, $params);
     }
     
     public function expect($sql, $parameters, $result)
     {
-        $this->_expectations[] = new Mock_Database_Expectation($sql, $parameters, $result);
+        $this->_expectations[] = new Mock_Database_Expectation_Pgsql($sql, $parameters, $result);
     }
     
     public function actual($sql, $parameters)
     {
         if(empty($this->_expectations))
         {
-            throw new Mock_Database_Exception("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
+            throw new Mock_Database_Exception_Pgsql("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
         
         $expectation = array_shift($this->_expectations);
@@ -107,12 +107,12 @@ extends Kohana_Database
     }
 }
 
-class Mock_Database_Exception extends Exception
+class Mock_Database_Exception_Pgsql extends Exception
 {
 }
 
 
-class Mock_Database_Expectation
+class Mock_Database_Expectation_Pgsql
 {
     private $_sql;
     private $_parameters;
@@ -129,15 +129,15 @@ class Mock_Database_Expectation
     {
         if($sql != $this->_sql)
         {
-            throw new Mock_Database_Exception("Expected the SQL \"" . $this->_sql
+            throw new Mock_Database_Exception_Pgsql("Expected the SQL \"" . $this->_sql
                 . "\", but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
         
-        return new Mock_Result($this->_result);
+        return new Mock_Result_Pgsql($this->_result);
     }
 }
 
-class Mock_Query
+class Mock_Query_Pgsql
 {
     private $_db;
     private $_type;
@@ -170,7 +170,7 @@ class Mock_Query
     }
 }
 
-class Mock_Result
+class Mock_Result_Pgsql
 {
     private $_result;
     
@@ -185,14 +185,14 @@ class Mock_Result
     }
 }
 
-class TargetTest extends Unittest_TestCase
+class PgsqlTest extends Unittest_TestCase
 {
     public function testSearch()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql();
         $target = new Target_Pgsql($mock_database);
         
-        $entity = Entity_Example::factory();
+        $entity = Entity_Example_Pgsql::factory();
         $selector = new Selector();
         
         $mock_database->expect("SELECT primary_id, modified_at, name, primary_id, modified_at FROM example  ",
@@ -226,10 +226,10 @@ class TargetTest extends Unittest_TestCase
 
     public function testDetails()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql();
         $target = new Target_Pgsql($mock_database);
         
-        $entity = Entity_Example::factory();
+        $entity = Entity_Example_Pgsql::factory();
         $selector = new Selector();
         $selector->exact('primary_id', '171234e3-0993-4e9e-cc03-bb78c85a47b5');
         
@@ -256,10 +256,10 @@ class TargetTest extends Unittest_TestCase
     
     public function testPgsqlCreate()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql();
         $target = new Target_Pgsql($mock_database);
         
-        $entity = Entity_Example::factory();
+        $entity = Entity_Example_Pgsql::factory();
         $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'An Entity';
         
@@ -300,10 +300,10 @@ class TargetTest extends Unittest_TestCase
     
     public function testUpdate()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql();
         $target = new Target_Pgsql($mock_database);
         
-        $entity = Entity_Example::factory();
+        $entity = Entity_Example_Pgsql::factory();
         $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
         $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'Row One renamed';
@@ -346,10 +346,10 @@ class TargetTest extends Unittest_TestCase
     
     public function testDelete()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql();
         $target = new Target_Pgsql($mock_database);
         
-        $entity = Entity_Example::factory();
+        $entity = Entity_Example_Pgsql::factory();
         $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
         $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'Row One renamed';

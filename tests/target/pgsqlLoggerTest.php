@@ -71,7 +71,7 @@ implements Target_Pgsqlable
 
 }
 
-class Mock_Database
+class Mock_Database_Pgsql_Logger
 extends Kohana_Database
 {
     private $_expectations = array();
@@ -117,19 +117,19 @@ extends Kohana_Database
     
     public function query($type, $sql, $as_object = false, array $params = NULL)
     {
-        return new Mock_Query($this, $type, $sql, $as_object, $params);
+        return new Mock_Query_Pgsql_Logger($this, $type, $sql, $as_object, $params);
     }
     
     public function expect($sql, $parameters, $result)
     {
-        $this->_expectations[] = new Mock_Database_Expectation($sql, $parameters, $result);
+        $this->_expectations[] = new Mock_Database_Expectation_Pgsql_Logger($sql, $parameters, $result);
     }
     
     public function actual($sql, $parameters)
     {
         if(empty($this->_expectations))
         {
-            throw new Mock_Database_Exception("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
+            throw new Mock_Database_Exception_Pgsql_Logger("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
         
         $expectation = array_shift($this->_expectations);
@@ -140,12 +140,12 @@ extends Kohana_Database
     }
 }
 
-class Mock_Database_Exception extends Exception
+class Mock_Database_Exception_Pgsql_Logger extends Exception
 {
 }
 
 
-class Mock_Database_Expectation
+class Mock_Database_Expectation_Pgsql_Logger
 {
     private $_sql;
     private $_parameters;
@@ -162,15 +162,15 @@ class Mock_Database_Expectation
     {
         if($sql != $this->_sql)
         {
-            throw new Mock_Database_Exception("Expected the SQL \"" . $this->_sql
+            throw new Mock_Database_Exception_Pgsql_Logger("Expected the SQL \"" . $this->_sql
                 . "\", but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
         
-        return new Mock_Result($this->_result);
+        return new Mock_Result_Pgsql_Logger($this->_result);
     }
 }
 
-class Mock_Query
+class Mock_Query_Pgsql_Logger
 {
     private $_db;
     private $_type;
@@ -203,7 +203,7 @@ class Mock_Query
     }
 }
 
-class Mock_Result
+class Mock_Result_Pgsql_Logger
 {
     private $_result;
     
@@ -219,11 +219,11 @@ class Mock_Result
 }
 
 
-class TargetTest extends Unittest_TestCase
+class PgsqlLoggerTest extends Unittest_TestCase
 {
     public function testUpdateOneThenTwo()
     {
-        $mock_database = new Mock_Database();
+        $mock_database = new Mock_Database_Pgsql_Logger();
         $target = new Target_Pgsql($mock_database);
         
         $one = Entity_One::factory();
@@ -237,7 +237,11 @@ class TargetTest extends Unittest_TestCase
                 'one_id' => null,
                 'modified_at' => null,
             ),
-            array()
+            array(
+                array(
+                    'one_id' => 'f0818405-a4c2-4f67-9a0e-d11a2f219d22',
+                ),
+            )
         );
         $mock_database->expect("SELECT one_id, modified_at, one, one_id FROM example_one WHERE ((one_id = 'f0818405-a4c2-4f67-9a0e-d11a2f219d22'))  ",
             array(),
@@ -257,7 +261,11 @@ class TargetTest extends Unittest_TestCase
                 'two_id' => null,
                 'modified_at' => null,
             ),
-            array()
+            array(
+                array(
+                    'two_id' => 'db864da4-9a1e-44d0-976d-ec66c55e4f93',
+                ),
+            )
         );
         $mock_database->expect("SELECT two_id, modified_at, two, two_id FROM example_two WHERE ((two_id = 'db864da4-9a1e-44d0-976d-ec66c55e4f93'))  ",
             array(),
