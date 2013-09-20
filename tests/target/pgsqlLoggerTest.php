@@ -10,7 +10,7 @@ implements Target_Pgsqlable
         
         $this['key'] = new Entity_Columnset('key');
         $this['key']['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
-        $this['key']->set_required('one_id');
+        $this['key']->set_attribute(Entity_Root::REQUIRED, 'one_id');
     
         $this['timestamp'] = new Entity_Columnset('timestamp');
         $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
@@ -46,7 +46,7 @@ implements Target_Pgsqlable
         
         $this['key'] = new Entity_Columnset('key');
         $this['key']['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
-        $this['key']->set_required('two_id');
+        $this['key']->set_attribute(Entity_Root::REQUIRED, 'two_id');
     
         $this['timestamp'] = new Entity_Columnset('timestamp');
         $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));

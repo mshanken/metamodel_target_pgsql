@@ -9,11 +9,11 @@ extends Entity_Root
         
         $this['key'] = new Entity_Columnset('key');
         $this['key']['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
-        $this['key']->set_required('primary_id');
+        $this['key']->set_attribute(Entity_Root::REQUIRED, 'primary_id');
     
         $this['timestamp'] = new Entity_Columnset('timestamp');
         $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
-        $this['timestamp']->set_required('modified_at');
+        $this['timestamp']->set_attribute(Entity_Root::REQUIRED, 'modified_at');
 
         $this['api'] = new Entity_Columnset('api');
         $this['api']['name'] = new Entity_Column('name', Type::factory('string'));
