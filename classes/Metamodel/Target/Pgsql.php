@@ -537,7 +537,7 @@ implements Target_Selectable
      */
     private function visit_column_name($entity, $column_storage_name)
     {
-        foreach(array('key', 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
+        foreach(array(Entity_Root::VIEW_KEY, 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
         {
             $column_name = $entity[$view_name]->lookup_entanglement_name($column_storage_name);
             if($column_name) return $column_name;
