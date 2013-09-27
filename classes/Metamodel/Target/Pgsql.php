@@ -681,6 +681,7 @@ implements Target_Selectable
     public function decode($field) 
     {
         $array = null;
+				
         if (is_array($field))
         {
             foreach ($field as $k=>$v) 
@@ -709,7 +710,6 @@ implements Target_Selectable
 
         if (is_null($array)) return $field;
 
-        // echo "<li>$field";var_dump($array);
 
         return $array;
     }
@@ -774,17 +774,21 @@ implements Target_Selectable
         
         $entities = array();
         $info = $template_entity->get_root()->get_target_info($this);
+		
         foreach($results as $row) 
         {
+        	
+        	$row = $this->decode($row);
+			
             $entity = clone $template_entity;
             $entity[Entity_Root::VIEW_KEY] = $row;
             $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
-            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
-
+            $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
+			
             $entities[] = $entity;
         }
-        
+		
         return $entities;
     }
     
