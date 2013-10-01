@@ -363,15 +363,7 @@ implements Target_Selectable
      * as defined by constants in the Selector class.
      */
     public function visit_selector_security(Type_Typeable $type, $sortable) {
-        if($type instanceof Type_FreeText)
-        {
-            return array(
-                Selector::SEARCH,
-                Selector::SORT,
-                Selector::ISNULL,
-            );
-        } 
-        else if ($type instanceof Type_Number)
+        if ($type instanceof Type_Number)
         {
             return array(
                 Selector::SEARCH,
