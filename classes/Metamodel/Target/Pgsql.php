@@ -785,4 +785,28 @@ implements Target_Selectable
         return NULL;
     }
 
+    public function is_selectable(Entity_Root $entity, $entanglement_name, array $allowed)
+    {
+        foreach ($entity[Target_Pgsql::VIEW_IMMUTABLE] as $k => $v)
+        {
+            if ($entanglement_name == $v->get_entanglement_name($k)) 
+            {
+                return true;
+            }
+        }
+
+        foreach ($entity[Target_Pgsql::VIEW_MUTABLE] as $k => $v)
+        {
+            if ($entanglement_name == $v->get_entanglement_name($k)) 
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function add_selectable(Selector $selector)
+    {
+        return true;
+    }
 }
