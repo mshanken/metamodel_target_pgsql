@@ -787,25 +787,21 @@ implements Target_Selectable
 
     public function is_selectable(Entity_Root $entity, $entanglement_name, array $allowed)
     {
-        foreach ($entity[Target_Pgsql::VIEW_IMMUTABLE] as $k => $v)
+        foreach (array(Entity_Root::VIEW_KEY, Entity_Root::VIEW_TS, Target_Pgsql::VIEW_MUTABLE,Target_Pgsql::VIEW_IMMUTABLE) as $view)
         {
-            if ($entanglement_name == $v->get_entanglement_name($k)) 
+            foreach ($entity[$view]->get_children() as $k => $v)
             {
-                return true;
+                if ($entanglement_name == $entity[$view]->get_entanglement_name($k)) 
+                {
+                    return true;
+                }
             }
         }
 
-        foreach ($entity[Target_Pgsql::VIEW_MUTABLE] as $k => $v)
-        {
-            if ($entanglement_name == $v->get_entanglement_name($k)) 
-            {
-                return true;
-            }
-        }
         return false;
     }
 
-    public function add_selectable(Selector $selector)
+    public function add_selectable(Entity_Root $entity, Selector $selector)
     {
         return true;
     }
