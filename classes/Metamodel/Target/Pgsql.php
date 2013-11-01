@@ -505,16 +505,25 @@ implements Target_Selectable
         return sprintf('NOT (%s)', $part);
     }
 
-
+    /**
+     * satisfy selector visitor interface
+     *
+     */
     public function visit_sort($entity, array $items) 
     {
-        $tmp = array();
-        foreach ($items as $item) 
+        $sorts = array();
+        $i = 0;
+        foreach($items as list($column_name, $direction))
         {
-           $tmp[] = sprintf('%s %s', $item[0], $item[1]);
+            $alias = $entity[Target_Cloudsearch::VIEW_INDEXER]->lookup_entanglement_name($column_name);
+            $sorts = sprintf('%s %s'
+                , $alias
+                , ($direction == 'desc') ? 'DESC' : 'ASC'
+            );
         }
-        if (!empty($tmp)) return sprintf('ORDER BY %s', implode(',', $tmp));
-        return  '';
+        if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
+
+        return '';
     }
 
     public function visit_page($entity, $limit, $offset = 0)
