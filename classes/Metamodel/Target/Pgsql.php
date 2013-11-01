@@ -789,23 +789,43 @@ implements Target_Selectable
         return NULL;
     }
 
-    public function is_selectable(Entity_Root $entity, $entanglement_name, array $allowed)
+    public function selectable_helper($entity, $entanglement_name) 
     {
+        foreach ($entity->get_children() as $k => $v)
+        {
+            if ($entanglement_name == $entity->get_entanglement_name($k)) 
+            {
+                return true;
+            }
+
+            if ($v instanceof Entity_Array_Nested) 
+            {
+                if ($this->selectable_helper($v->get_child(), $entanglement_name)) return true;
+            } 
+            else if ($v instanceof Entity_Columnset)
+            {
+                if ($this->selectable_helper($v, $entanglement_name)) return true;
+            }
+        }
+        return false;
+    }
+
+    public function is_selectable(Entity_Store $entity, $entanglement_name, array $allowed)
+    {
+        if (!($entity instanceof Entity_Root)) $entity = $entity->get_root();
+
         foreach (array(Entity_Root::VIEW_KEY, Entity_Root::VIEW_TS, Target_Pgsql::VIEW_MUTABLE,Target_Pgsql::VIEW_IMMUTABLE) as $view)
         {
-            foreach ($entity[$view]->get_children() as $k => $v)
+            if ($this->selectable_helper($entity[$view], $entanglement_name))
             {
-                if ($entanglement_name == $entity[$view]->get_entanglement_name($k)) 
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
         return false;
     }
 
-    public function add_selectable(Entity_Root $entity, Selector $selector)
+    public function add_selectable(Entity_Store $entity, Selector $selector)
     {
         return true;
     }
