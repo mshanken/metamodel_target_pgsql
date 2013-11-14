@@ -217,6 +217,7 @@ implements Target_Selectable
                 , $selector->build_target_query($entity, $this)
             );
         }
+
         $query = $this->query(Database::SELECT, $sql);
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
@@ -543,7 +544,7 @@ implements Target_Selectable
             if($column_name) return $column_name;
         }
         
-        throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $entity->getName() . "\".");
+        throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $entity->get_root()->get_name() . "\".");
     }
 
     /**
