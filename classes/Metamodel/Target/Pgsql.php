@@ -285,7 +285,7 @@ implements Target_Selectable
      *
      * @TODO profile me, i suspect this is slow
      */
-    protected function PDO_params(Entity_Columnset $eview) 
+    protected function PDO_params(Entity_Columnset_Iterator $eview) 
     {
         $encoded = $this->encode($eview);
         
