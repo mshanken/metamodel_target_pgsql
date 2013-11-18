@@ -798,39 +798,18 @@ implements Target_Selectable
         return NULL;
     }
 
-    public function selectable_helper($entity, $entanglement_name) 
+    public function is_selectable(Entity_Row $row, $entanglement_name, array $allowed)
     {
-        foreach ($entity->get_children() as $k => $v)
+        foreach (array(Entity_Root::VIEW_KEY
+                    , Entity_Root::VIEW_TS
+                    , Target_Pgsql::VIEW_MUTABLE
+                    , Target_Pgsql::VIEW_IMMUTABLE) as $view)
         {
-            if ($entanglement_name == $entity->get_entanglement_name($k)) 
-            {
-                return true;
-            }
-
-            if ($v instanceof Entity_Array_Nested) 
-            {
-                if ($this->selectable_helper($v->get_child(), $entanglement_name)) return true;
-            } 
-            else if ($v instanceof Entity_Columnset)
-            {
-                if ($this->selectable_helper($v, $entanglement_name)) return true;
-            }
-        }
-        return false;
-    }
-
-    public function is_selectable(Entity_Store $entity, $entanglement_name, array $allowed)
-    {
-        if (!($entity instanceof Entity_Root)) $entity = $entity->get_root();
-
-        foreach (array(Entity_Root::VIEW_KEY, Entity_Root::VIEW_TS, Target_Pgsql::VIEW_MUTABLE,Target_Pgsql::VIEW_IMMUTABLE) as $view)
-        {
-            if ($this->selectable_helper($entity[$view], $entanglement_name))
+            if ($row[$view]->lookup_entanglement_name($entanglement_name) !== false)
             {
                 return true;
             }
         }
-
         return false;
     }
 
