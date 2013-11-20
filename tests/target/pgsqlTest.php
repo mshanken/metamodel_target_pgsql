@@ -7,23 +7,23 @@ extends Entity_Root
     {
         parent::__construct('example');    
         
-        $this['key'] = new Entity_Columnset('key');
-        $this['key']['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
-        $this['key']->set_attribute(Entity_Root::REQUIRED, 'primary_id');
+        $this[Entity_Root::VIEW_KEY] = new Entity_Columnset('key');
+        $this[Entity_Root::VIEW_KEY]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
+        $this[Entity_Root::VIEW_KEY]->set_attribute(Entity_Root::ATTR_REQUIRED, 'primary_id');
     
-        $this['timestamp'] = new Entity_Columnset('timestamp');
-        $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
-        $this['timestamp']->set_attribute(Entity_Root::REQUIRED, 'modified_at');
+        $this[Entity_Root::VIEW_TS] = new Entity_Columnset('timestamp');
+        $this[Entity_Root::VIEW_TS]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
+        $this[Entity_Root::VIEW_TS]->set_attribute(Entity_Root::ATTR_REQUIRED, 'modified_at');
 
         $this['api'] = new Entity_Columnset('api');
         $this['api']['name'] = new Entity_Column('name', Type::factory('string'));
         
-        $this['selector'] = new Entity_Columnset('selector');
-        $this['selector']['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
+        $this[Selector::VIEW_SELECTOR] = new Entity_Columnset('selector');
+        $this[Selector::VIEW_SELECTOR]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'));
         
         $this[Target_Pgsql::VIEW_IMMUTABLE] = new Entity_Columnset('pgsql_mutable');
-        $this[Target_Pgsql::VIEW_IMMUTABLE]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'), Entity_Columnset::REQUIRED);
-        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'), Entity_Columnset::REQUIRED);
+        $this[Target_Pgsql::VIEW_IMMUTABLE]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'), Entity_Root::ATTR_REQUIRED);
+        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'), Entity_Root::ATTR_REQUIRED);
                 
         $this[Target_Pgsql::VIEW_MUTABLE] = new Entity_Columnset('pgsql_mutable');
         $this[Target_Pgsql::VIEW_MUTABLE]['name'] = new Entity_Column('name', Type::factory('string'));
@@ -216,11 +216,11 @@ class PgsqlTest extends Unittest_TestCase
         $this->assertInternalType('array', $rows);
         $this->assertEquals(2, count($rows));
         $this->assertInstanceOf('Entity_Row', $rows[0]);
-        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
-        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0][Entity_Root::VIEW_KEY]['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0][Entity_Root::VIEW_TS]['modified_at']);
         $this->assertEquals('Row One', $rows[0]['api']['name']);
-        $this->assertEquals('9a64d302-5513-446a-9895-ba5b26f0b2cf', $rows[1]['key']['primary_id']);
-        $this->assertEquals('2013-03-19 12:23:14', $rows[1]['timestamp']['modified_at']);
+        $this->assertEquals('9a64d302-5513-446a-9895-ba5b26f0b2cf', $rows[1][Entity_Root::VIEW_KEY]['primary_id']);
+        $this->assertEquals('2013-03-19 12:23:14', $rows[1][Entity_Root::VIEW_TS]['modified_at']);
         $this->assertEquals('Row Two', $rows[1]['api']['name']);
     }
 
@@ -249,8 +249,8 @@ class PgsqlTest extends Unittest_TestCase
         $this->assertInternalType('array', $rows);
         $this->assertEquals(1, count($rows));
         $this->assertInstanceOf('Entity_Row', $rows[0]);
-        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
-        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0][Entity_Root::VIEW_KEY]['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0][Entity_Root::VIEW_TS]['modified_at']);
         $this->assertEquals('Row One', $rows[0]['api']['name']);
     }
     
@@ -260,7 +260,7 @@ class PgsqlTest extends Unittest_TestCase
         $target = new Target_Pgsql($mock_database);
         
         $entity = Entity_Example_Pgsql::factory();
-        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
+        $entity[Entity_Root::VIEW_TS]['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'An Entity';
         
         $mock_database->expect
@@ -289,13 +289,13 @@ class PgsqlTest extends Unittest_TestCase
         $created = $target->create($entity);
         
         $this->assertInstanceOf('Entity_Row', $created);
-        $this->assertEquals($entity['timestamp']['modified_at'],
-                            $created['timestamp']['modified_at']);
+        $this->assertEquals($entity[Entity_Root::VIEW_TS]['modified_at'],
+                            $created[Entity_Root::VIEW_TS]['modified_at']);
         $this->assertEquals($entity['api']['name'],
                             $created['api']['name']);
-        $this->assertInternalType('string', $created['key']['primary_id']);
-    $this->assertRegExp('/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/', $created['key']['primary_id']);
-        $this->assertEquals('e0209f19-d8c5-4ccf-945e-38700c375add', $created['key']['primary_id']);
+        $this->assertInternalType('string', $created[Entity_Root::VIEW_KEY]['primary_id']);
+    $this->assertRegExp('/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/', $created[Entity_Root::VIEW_KEY]['primary_id']);
+        $this->assertEquals('e0209f19-d8c5-4ccf-945e-38700c375add', $created[Entity_Root::VIEW_KEY]['primary_id']);
     }
     
     public function testUpdate()
@@ -304,8 +304,8 @@ class PgsqlTest extends Unittest_TestCase
         $target = new Target_Pgsql($mock_database);
         
         $entity = Entity_Example_Pgsql::factory();
-        $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
-        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
+        $entity[Entity_Root::VIEW_KEY]['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
+        $entity[Entity_Root::VIEW_TS]['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'Row One renamed';
         
         $selector = new Selector();
@@ -339,8 +339,8 @@ class PgsqlTest extends Unittest_TestCase
         $this->assertInternalType('array', $rows);
         $this->assertEquals(1, count($rows));
         $this->assertInstanceOf('Entity_Row', $rows[0]);
-        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0]['key']['primary_id']);
-        $this->assertEquals('2013-03-19 12:22:05', $rows[0]['timestamp']['modified_at']);
+        $this->assertEquals('171234e3-0993-4e9e-cc03-bb78c85a47b5', $rows[0][Entity_Root::VIEW_KEY]['primary_id']);
+        $this->assertEquals('2013-03-19 12:22:05', $rows[0][Entity_Root::VIEW_TS]['modified_at']);
         $this->assertEquals('Row One renamed', $rows[0]['api']['name']);
     }
     
@@ -350,8 +350,8 @@ class PgsqlTest extends Unittest_TestCase
         $target = new Target_Pgsql($mock_database);
         
         $entity = Entity_Example_Pgsql::factory();
-        $entity['key']['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
-        $entity['timestamp']['modified_at'] = '2013-03-19 12:22:05';
+        $entity[Entity_Root::VIEW_KEY]['primary_id'] = '171234e3-0993-4e9e-cc03-bb78c85a47b5';
+        $entity[Entity_Root::VIEW_TS]['modified_at'] = '2013-03-19 12:22:05';
         $entity['api']['name'] = 'Row One renamed';
         
         $selector = new Selector();

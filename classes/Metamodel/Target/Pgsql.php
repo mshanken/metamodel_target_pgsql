@@ -286,7 +286,7 @@ implements Target_Selectable
      *
      * @TODO profile me, i suspect this is slow
      */
-    protected function PDO_params(Entity_Columnset $eview) 
+    protected function PDO_params(Entity_Columnset_Iterator $eview) 
     {
         $encoded = $this->encode($eview);
         
@@ -364,15 +364,7 @@ implements Target_Selectable
      * as defined by constants in the Selector class.
      */
     public function visit_selector_security(Type_Typeable $type, $sortable) {
-        if($type instanceof Type_FreeText)
-        {
-            return array(
-                Selector::SEARCH,
-                Selector::SORT,
-                Selector::ISNULL,
-            );
-        } 
-        else if ($type instanceof Type_Number)
+        if ($type instanceof Type_Number)
         {
             return array(
                 Selector::SEARCH,
@@ -514,16 +506,25 @@ implements Target_Selectable
         return sprintf('NOT (%s)', $part);
     }
 
-
+    /**
+     * satisfy selector visitor interface
+     *
+     */
     public function visit_sort($entity, array $items) 
     {
-        $tmp = array();
-        foreach ($items as $item) 
+        $sorts = array();
+        $i = 0;
+        foreach($items as list($column_name, $direction))
         {
-           $tmp[] = sprintf('%s %s', $item[0], $item[1]);
+            $alias = $entity[Target_Cloudsearch::VIEW_INDEXER]->lookup_entanglement_name($column_name);
+            $sorts = sprintf('%s %s'
+                , $alias
+                , ($direction == 'desc') ? 'DESC' : 'ASC'
+            );
         }
-        if (!empty($tmp)) return sprintf('ORDER BY %s', implode(',', $tmp));
-        return  '';
+        if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
+
+        return '';
     }
 
     public function visit_page($entity, $limit, $offset = 0)
@@ -538,7 +539,7 @@ implements Target_Selectable
      */
     private function visit_column_name($entity, $column_storage_name)
     {
-        foreach(array('key', 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
+        foreach(array(Entity_Root::VIEW_KEY, 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
         {
             $column_name = $entity[$view_name]->lookup_entanglement_name($column_storage_name);
             if($column_name) return $column_name;
@@ -553,7 +554,7 @@ implements Target_Selectable
      */
     private function query($mode, $sql)
     {
-        error_log( $sql );
+        // error_log( $sql );
         if(!is_null($this->_debug_db))
         {
             return $this->_debug_db->query($mode, $sql);
@@ -798,4 +799,23 @@ implements Target_Selectable
         return NULL;
     }
 
+    public function is_selectable(Entity_Row $row, $entanglement_name, array $allowed)
+    {
+        foreach (array(Entity_Root::VIEW_KEY
+                    , Entity_Root::VIEW_TS
+                    , Target_Pgsql::VIEW_MUTABLE
+                    , Target_Pgsql::VIEW_IMMUTABLE) as $view)
+        {
+            if ($row[$view]->lookup_entanglement_name($entanglement_name) !== false)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function add_selectable(Entity_Store $entity, Selector $selector)
+    {
+        return true;
+    }
 }

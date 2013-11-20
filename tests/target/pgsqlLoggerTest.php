@@ -8,18 +8,18 @@ implements Target_Pgsqlable
     {
         parent::__construct('one');    
         
-        $this['key'] = new Entity_Columnset('key');
-        $this['key']['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
-        $this['key']->set_attribute(Entity_Root::REQUIRED, 'one_id');
+        $this[Entity_Root::VIEW_KEY] = new Entity_Columnset('key');
+        $this[Entity_Root::VIEW_KEY]['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
+        $this[Entity_Root::VIEW_KEY]->set_attribute(Entity_Root::ATTR_REQUIRED, 'one_id');
     
-        $this['timestamp'] = new Entity_Columnset('timestamp');
-        $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
+        $this[Entity_Root::VIEW_TS] = new Entity_Columnset('timestamp');
+        $this[Entity_Root::VIEW_TS]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
 
         $this['api'] = new Entity_Columnset('api');
         $this['api']['one'] = new Entity_Column('one', Type::factory('string'));
 
-        $this['selector'] = new Entity_Columnset('selector');
-        $this['selector']['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
+        $this[Selector::VIEW_SELECTOR] = new Entity_Columnset('selector');
+        $this[Selector::VIEW_SELECTOR]['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
         
         $this[Target_Pgsql::VIEW_IMMUTABLE] = new Entity_Columnset('pgsql_immutable');
         $this[Target_Pgsql::VIEW_IMMUTABLE]['one_id'] = new Entity_Column('one_id', Type::factory('uuid'));
@@ -44,18 +44,18 @@ implements Target_Pgsqlable
     {
         parent::__construct('two');    
         
-        $this['key'] = new Entity_Columnset('key');
-        $this['key']['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
-        $this['key']->set_attribute(Entity_Root::REQUIRED, 'two_id');
+        $this[Entity_Root::VIEW_KEY] = new Entity_Columnset('key');
+        $this[Entity_Root::VIEW_KEY]['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
+        $this[Entity_Root::VIEW_KEY]->set_attribute(Entity_Root::ATTR_REQUIRED, 'two_id');
     
-        $this['timestamp'] = new Entity_Columnset('timestamp');
-        $this['timestamp']['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
+        $this[Entity_Root::VIEW_TS] = new Entity_Columnset('timestamp');
+        $this[Entity_Root::VIEW_TS]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
 
         $this['api'] = new Entity_Columnset('api');
         $this['api']['two'] = new Entity_Column('two', Type::factory('string'));
         
-        $this['selector'] = new Entity_Columnset('selector');
-        $this['selector']['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
+        $this[Selector::VIEW_SELECTOR] = new Entity_Columnset('selector');
+        $this[Selector::VIEW_SELECTOR]['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
         
         $this[Target_Pgsql::VIEW_IMMUTABLE] = new Entity_Columnset('pgsql_immutable');
         $this[Target_Pgsql::VIEW_IMMUTABLE]['two_id'] = new Entity_Column('two_id', Type::factory('uuid'));
