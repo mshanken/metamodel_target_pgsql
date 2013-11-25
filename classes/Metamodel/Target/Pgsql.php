@@ -417,7 +417,7 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */ 
-    public function visit_search($entity, $column_storage_name, $param) 
+    public function visit_search($entity, $column_storage_name, $param, $query) 
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name);
         return sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
@@ -474,6 +474,27 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
+    public function visit_dist_radius($entity, $column_storage_name, $long, $lat, $radius, $query) 
+    {
+        //$column_name = $this->visit_column_name($entity, $column_storage_name);
+        $column_name = "geom";
+		$radius = $radius * .01448;
+        if (is_numeric($long) && is_numeric($lat) && is_numeric($radius))
+		{
+           // return sprintf("(%s BETWEEN %d AND %d)", $column_name, $lat, $long, $radius);
+			 return sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
+			
+		}
+       
+        break;
+
+    }
+	
+	
+    /**
+     * satisfy selector visitor interface
+     *
+     */
     public function visit_isnull($entity, $column_storage_name) 
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name);
@@ -514,8 +535,9 @@ implements Target_Selectable
     {
         $sorts = array();
         $i = 0;
-        foreach($items as list($column_name, $direction))
+        foreach($items as $current)
         {
+            	list($column_name, $direction) = $current;
             $alias = $entity[Target_Cloudsearch::VIEW_INDEXER]->lookup_entanglement_name($column_name);
             $sorts = sprintf('%s %s'
                 , $alias
