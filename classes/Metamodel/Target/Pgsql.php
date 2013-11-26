@@ -314,7 +314,8 @@ implements Target_Selectable
             , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
         );
         
-        if (is_null($info->get_view())) {
+        if (is_null($info->get_view())) 
+        {
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
         $sql = sprintf('SELECT %s FROM %s', implode(', ', $returning_fields), $info->get_view());            
