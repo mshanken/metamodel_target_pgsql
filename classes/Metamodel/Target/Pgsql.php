@@ -515,10 +515,16 @@ implements Target_Selectable
     {
         $sorts = array();
         $i = 0;
-        foreach($items as list($column_name, $direction))
+        foreach($items as $current)
         {
-            $alias = $entity[Target_Cloudsearch::VIEW_INDEXER]->lookup_entanglement_name($column_name);
-            $sorts = sprintf('%s %s'
+            list($column_name, $direction) = $current;
+            $alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
+            if(!$alias)
+            {
+                $alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
+            }
+            
+            $sorts[] = sprintf('%s %s'
                 , $alias
                 , ($direction == 'desc') ? 'DESC' : 'ASC'
             );
