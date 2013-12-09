@@ -40,6 +40,7 @@ implements Target_Selectable
     public function __construct($debug_db = null)
     {
         $this->_debug_db = $debug_db;
+		$query = array();
     }
     
     public function validate_entity(Entity_Row $entity)
@@ -69,17 +70,23 @@ implements Target_Selectable
     {
         $entity = clone $entity;
         $info = $entity->get_root()->get_target_info($this);
-
+		$query = array();
+		
         $sql = sprintf('SELECT count(*) AS count FROM %s', $info->get_view());            
         if (!is_null($selector)) 
         {
-            if ($query = $selector->build_target_query($entity, $this))
+            if ($query = $selector->build_target_query($entity, $this, $query))
             {
-                $where = $query['WHERE_CLAUSE'];	
-                if ('()' != $where)
-                {
-                    $sql = sprintf('%s WHERE %s', $sql, $where);
-                }
+                if(is_array($query['WHERE_CLAUSE']))
+				{	
+	                $where = implode(', ', $query['WHERE_CLAUSE']);	
+					
+	                if (!empty($where))
+	                {
+	                    $sql = sprintf('%s WHERE %s', $sql, $where);
+	                }
+					
+				}
             }
             // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
@@ -178,6 +185,8 @@ implements Target_Selectable
         $info = $entity->get_root()->get_target_info($this);
         $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
+		$query = array();
+		
         if(!empty($problems))
         {
             throw new HTTP_Exception_400(var_export($problems, TRUE));
@@ -205,25 +214,31 @@ implements Target_Selectable
         } 
         else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
         {
+            $query = $selector->build_target_query($entity, $this, $query);
+			$where = $query['WHERE_CLAUSE'];
+				
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s'
                 , $info->get_table()
                 , implode(', ', array_map(
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
                 ))
-                , $selector->build_target_query($entity, $this)
+                , implode(', ', $where)
                 , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
             );
         }
         else
         {
+            $query = $selector->build_target_query($entity, $this, $query);
+			$where = $query['WHERE_CLAUSE'];
+				
             $sql = sprintf('UPDATE %s SET %s WHERE %s'
                 , $info->get_table()
                 , implode(', ', array_map(
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
                 ))
-                , $selector->build_target_query($entity, $this)
+                ,  implode(', ', $where)
             );
         }
 
@@ -261,8 +276,10 @@ implements Target_Selectable
     public function remove(Entity_Row $entity, Selector $selector)
     {
         $entity = clone $entity;
+		$query = array();
         $info = $entity->get_root()->get_target_info($this);
-        $where = $selector->build_target_query($entity, $this);
+        $query = $selector->build_target_query($entity, $this, $query);
+		$where = implode(', ', $query['WHERE_CLAUSE']);
 
         $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
 
@@ -315,8 +332,8 @@ implements Target_Selectable
     public function select_deferred(Entity_Row $entity, Selector $selector = null)
     {
         $info = $entity->get_root()->get_target_info($this);
-		
-		$query = $selector->build_target_query($entity, $this);
+		$query = array();
+		$query = $selector->build_target_query($entity, $this, $query);
 		
 
         $returning_fields = array_merge(
@@ -342,18 +359,25 @@ implements Target_Selectable
 
         if (!is_null($selector)) 
         {
-            if ($where = $query['WHERE_CLAUSE'])
-            {
-               
-			    if ('()' != $where)
-                {
-                    $sql = sprintf('%s WHERE %s', $sql, $where);
-                }
-            }
-			
+            if(is_array($query['WHERE_CLAUSE']))
+			{
+	            if ($where = implode(', ', $query['WHERE_CLAUSE']))
+	            {
+	              
+				  $sql = sprintf('%s WHERE %s', $sql, $where);
+				  
+				    /*if ('()' != $where)
+	                {
+	                    $sql = sprintf('%s WHERE %s', $sql, $where);
+	                }
+					*/
+	            }
+			}
             $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this, $query), $selector->build_target_page($entity, $this));
         }
-		echo $sql;
+		
+		//echo $sql;
+		
 		
 
 		$this->select_query = $query;
@@ -403,6 +427,7 @@ implements Target_Selectable
                 Selector::RANGE,
                 Selector::ISNULL,
                 Selector::SORT,
+                Selector::DIST_RADIUS,
             );
         } 
         else if ($type instanceof Type_Date)
@@ -557,10 +582,14 @@ implements Target_Selectable
        	
 		
         $parts = array();
-        if(!empty($query['WHERE'])) $parts = $query['WHERE'];	
-        
-        //return sprintf('(%s)', implode(') AND (', $parts));
-        $query['WHERE_CLAUSE'] = sprintf('(%s)', implode(') AND (', $parts));
+        if(!empty($query['WHERE'])) 
+        {
+	        $parts = $query['WHERE'];	
+	        
+	        $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') AND (', $parts));
+			
+		}
+		//print_r($query);
 		
 		
 		return $query;
@@ -573,10 +602,19 @@ implements Target_Selectable
     public function visit_operator_or($entity, array $query) 
     {
         $parts = array();
-        if(!empty($query['WHERE'])) $parts = $query['WHERE'];	
-				
-        //return sprintf('(%s)', implode(') OR (', $parts));
-        $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
+        if(!empty($query['WHERE'])) 
+        {	
+        	$parts = $query['WHERE'];	
+			//var_dump($parts);
+			
+			
+		
+        	$query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
+		}
+		
+		//print_r($query);
+		//echo "<hr>";
+		//echo "exiting visit_operator_or function";
 		
 		return $query;
     }
