@@ -8,6 +8,8 @@
  *
  **/
 
+//TODO - Switch to parameterized queries
+
 Class Metamodel_Target_Pgsql 
 extends Model_Database
 implements Target_Selectable
@@ -619,7 +621,7 @@ implements Target_Selectable
                 $tmp = array();
                 foreach ($value as $k => $v) 
                 {
-                    if(is_string($v))
+                    if(is_scalar($v))
                     {
                         $tmp[] = $this->addslashes($v);
                     }
@@ -660,6 +662,7 @@ implements Target_Selectable
         return $result;
     }
     
+    // TODO - Input escaping is bad! Switch to using parameterized queries
     function addslashes($data)
     {
         if(is_string($data))
