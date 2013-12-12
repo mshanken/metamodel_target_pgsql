@@ -344,18 +344,18 @@ implements Target_Selectable
         );
         
 
-		if($query['SELECT'] != '')
+		if(isset($query['SELECT'] ))
 			$returning_fields[] = $query['SELECT'];
 		
-		//print_r($returning_fields);
+		
 		
         if (is_null($info->get_view())) {
 
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
-        $sql = sprintf('SELECT %s FROM %s', implode(', ', $returning_fields), $info->get_view());            
+        $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($returning_fields)), $info->get_view());            
 
-
+	         
 
         if (!is_null($selector)) 
         {
@@ -654,6 +654,7 @@ implements Target_Selectable
 		*/
 		
 		return $query;
+		
 		
     }
 
