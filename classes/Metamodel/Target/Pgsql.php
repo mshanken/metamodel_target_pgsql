@@ -373,7 +373,26 @@ implements Target_Selectable
 					*/
 	            }
 			}
-            $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this, $query), $selector->build_target_page($entity, $this));
+			$query = $selector->build_target_sort($entity, $this, $query);
+			$sort_by = '';
+			if(isset($query['SORT_BY']))
+			{
+				$sort_by = $query['SORT_BY'];
+				
+			}
+			 
+			 
+			$query = $selector->build_target_page($entity, $this, $query);	
+			
+			$page_is = '';
+			if(isset($query['LIMIT']))
+			{
+				$page_is = $query['LIMIT'];
+			}	
+           // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this, $query), $selector->build_target_page($entity, $this));
+       	 	$sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
+       
+       
         }
 		
 		//echo $sql;
@@ -566,7 +585,7 @@ implements Target_Selectable
      */
     public function visit_isnull($entity, $column_storage_name, array $query) 
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name);
+        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
         //return sprintf("(%s IS NULL)", $column_name);
         $query['WHERE'][] = sprintf("(%s IS NULL)", $column_name);
 		
@@ -612,9 +631,6 @@ implements Target_Selectable
         	$query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
 		}
 		
-		//print_r($query);
-		//echo "<hr>";
-		//echo "exiting visit_operator_or function";
 		
 		return $query;
     }
@@ -622,11 +638,20 @@ implements Target_Selectable
     /**
      * satisfy selector visitor interface
      */
-    public function visit_operator_not($entity, array $query, $part) 
+    public function visit_operator_not($entity, $part, array $query) 
     {
         //return sprintf('NOT (%s)', $part);
         
-        $query['WHERE'][] = sprintf('NOT (%s)', $part);
+        $query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
+       
+       /*
+        if(!empty($query['WHERE'])) 
+        {	
+        	$part = $query['WHERE'][0];	
+			
+        	$query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
+		}
+		*/
 		
 		return $query;
 		
@@ -638,40 +663,68 @@ implements Target_Selectable
      */
     public function visit_sort($entity, array $items, array $query) 
     {
-        
+        /*var_dump($items);
+		var_dump($query);
+		*/
         $sorts = array();
         $i = 0;
         foreach($items as $current)
         {
-            list($column_name, $direction) = $current;
-			$alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
-			if(!$alias)	
-            	$alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
-			if(!$alias)	
-				$alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
+            $alias = "";	
 			
-           /* $sorts[] = sprintf('%s %s'
-                , $alias
-                , ($direction == 'desc') ? 'DESC' : 'ASC'
-            );
-			*/
-			$query['SORTS'][] = sprintf('%s %s'
-                , $alias
-                , ($direction == 'desc') ? 'DESC' : 'ASC'
-            );
+			//$current = explode(', ', $current);
+			
+            list($column_name, $direction) = $current;
+			
+			
+			$alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
+			
+			if(!$alias)	
+			{
+            	$alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
+				
+			}
+			
+			if(!$alias)
+			{
+				if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
+					$alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
+			}
+			if(!empty($alias))
+			{	
+			 
+	           /* $sorts[] = sprintf('%s %s'
+	                , $alias
+	                , ($direction == 'desc') ? 'DESC' : 'ASC'
+	            );
+				*/
+				$query['SORTS'][] = sprintf('%s %s'
+	                , $alias
+	                , ($direction == 'desc') ? 'DESC' : 'ASC'
+	            );
+			}
         }
-     //   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
-     	
-     	if (!empty($query['SORTS'])) 
-			$query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
 
-        return $query;
+     		//   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
+     	
+	     	if (!empty($query['SORTS'])) 
+				$query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
+				
+	        return $query;
     }
 
     public function visit_page($entity, $query, $limit, $offset = 0)
     {
-        if (empty($limit)) return '';
-        return sprintf('LIMIT %d OFFSET %d', $limit, $offset);
+       //print_r($limit);
+	   
+	   
+	    if (empty($limit)) return '';
+        //return sprintf('LIMIT %d OFFSET %d', $limit, $offset);
+        
+        $query['LIMIT'] = sprintf('LIMIT %d OFFSET %d', $limit, $offset);
+		
+		
+		return $query;
     }
     
     /**
