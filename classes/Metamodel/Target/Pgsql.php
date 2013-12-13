@@ -549,6 +549,7 @@ implements Target_Selectable
             // handles dates
             $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $column_name, $min, $max);
         
+		
         return $query;
     }
 
@@ -638,20 +639,13 @@ implements Target_Selectable
     /**
      * satisfy selector visitor interface
      */
-    public function visit_operator_not($entity, $part, array $query) 
+    public function visit_operator_not($entity, array $query) 
     {
         //return sprintf('NOT (%s)', $part);
+        if (count($query['WHERE']) > 1) throw new Exception ('selector operation not cannot accept multiple parts');
         
+		$part = $query['WHERE'][0];
         $query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
-       
-       /*
-        if(!empty($query['WHERE'])) 
-        {	
-        	$part = $query['WHERE'][0];	
-			
-        	$query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
-		}
-		*/
 		
 		return $query;
 		
@@ -664,9 +658,7 @@ implements Target_Selectable
      */
     public function visit_sort($entity, array $items, array $query) 
     {
-        /*var_dump($items);
-		var_dump($query);
-		*/
+       
         $sorts = array();
         $i = 0;
         foreach($items as $current)
@@ -705,6 +697,7 @@ implements Target_Selectable
 	            );
 			}
         }
+		
 
      		//   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
      	
