@@ -595,7 +595,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
-     *
+     * @TODO remove unused $entity param
      */
     public function visit_operator_and($entity, array $query) 
     {
@@ -617,6 +617,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
+     * @TODO remove unused $entity param
      *
      */
     public function visit_operator_or($entity, array $query) 
@@ -638,6 +639,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
+     * @TODO remove unused $entity param
      */
     public function visit_operator_not($entity, array $query) 
     {
