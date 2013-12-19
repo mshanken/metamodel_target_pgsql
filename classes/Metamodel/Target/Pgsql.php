@@ -253,6 +253,7 @@ implements Target_Selectable
 
         try 
         {
+            //TODO - This assumes our update has returned rows. We need to handle when 0 rows are affected
             $row = array_shift($results);
             $row = $this->decode($row);
 
