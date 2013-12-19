@@ -6,6 +6,8 @@
  * @subpackage Target
  * @author dchan@mshanken.com
  *
+ * TODO: Switch from encoding string to true parameterized queries
+ *
  **/
 
 Class Metamodel_Target_Pgsql 
@@ -595,7 +597,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
-     *
+     * @TODO remove unused $entity param
      */
     public function visit_operator_and($entity, array $query) 
     {
@@ -617,6 +619,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
+     * @TODO remove unused $entity param
      *
      */
     public function visit_operator_or($entity, array $query) 
@@ -638,6 +641,7 @@ implements Target_Selectable
 
     /**
      * satisfy selector visitor interface
+     * @TODO remove unused $entity param
      */
     public function visit_operator_not($entity, array $query) 
     {
@@ -800,7 +804,7 @@ implements Target_Selectable
                 $tmp = array();
                 foreach ($value as $k => $v) 
                 {
-                    if(is_string($v))
+                    if(is_scalar($v))
                     {
                         $tmp[] = $this->addslashes($v);
                     }
