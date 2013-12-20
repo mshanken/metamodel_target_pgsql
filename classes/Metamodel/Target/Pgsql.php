@@ -1000,7 +1000,7 @@ implements Target_Selectable
                     , Target_Pgsql::VIEW_IMMUTABLE
 					, Target_Pgsql::VIEW_OPTIONAL) as $view)
         {
-            if ($row[$view]->lookup_entanglement_name($entanglement_name) !== false)
+            if ($row->offsetExists($view) and $row[$view]->lookup_entanglement_name($entanglement_name) !== false)
             {
                 return true;
             }
