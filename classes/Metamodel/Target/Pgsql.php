@@ -500,7 +500,7 @@ implements Target_Selectable
     {
         $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
        // return sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
-        $query['WHERE'][] = sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
+        $query['WHERE'][] = sprintf("(%s ILIKE '%s%%')", $column_name, pg_escape_string($param));
         
 		return $query;
     }
