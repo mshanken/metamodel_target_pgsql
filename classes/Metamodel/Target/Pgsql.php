@@ -482,7 +482,7 @@ implements Target_Selectable
      * @access public
      * @return void
      */
-    public function visit_exact($entity, $column_storage_name, array $query)
+    public function visit_exact($entity, $column_storage_name, array $query, $search_value)
     {
         list($column_name, $param, $type) = $this->visit_column_name($entity, $column_storage_name, $query);
 
@@ -500,12 +500,13 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */ 
-    public function visit_search($entity, $column_storage_name, array $query) 
+    public function visit_search($entity, $column_storage_name, array $query, $search_value) 
     {
         list($column_name, $param, $type) = $this->visit_column_name($entity, $column_storage_name, $query);
+        if (!$param) $param = $search_value;
 
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        $query['WHERE'][] = sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
+        $column_info = $this->visit_column_name($entity, $column_storage_name, $query);
+        $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $column_info[0], pg_escape_string($param));
 
         return $query;
     }
@@ -553,17 +554,18 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_range($entity, $column_storage_name, array $query, $min, $max) 
+    public function visit_range($min, $max, $column_storage_name, array $query) 
     {
-        list($column_name, $param, $type) = $this->visit_column_name($entity, $column_storage_name, $query);
+        list($column_name, $min_param, $type) = $this->visit_column_name($min, $column_storage_name, $query);
+        list($column_name, $max_param, $type) = $this->visit_column_name($max, $column_storage_name, $query);
         if ($type instanceof Type_Number)
         {
-            $query['WHERE'][] = sprintf("(%s BETWEEN %d AND %d)", $column_name, $min, $max);
+            $query['WHERE'][] = sprintf("(%s BETWEEN %d AND %d)", $column_name, $min_param, $max_param);
         }
         else
         {
             // handles dates
-            $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $column_name, $min, $max);
+            $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $column_name, $min_param, $max_param);
         }
 
         return $query;
