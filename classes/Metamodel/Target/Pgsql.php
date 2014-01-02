@@ -252,6 +252,7 @@ implements Target_Selectable
 
         try 
         {
+            //TODO - This assumes our update has returned rows. We need to handle when 0 rows are affected
             $row = array_shift($results);
             $row = $this->decode($row);
 
@@ -768,15 +769,8 @@ implements Target_Selectable
         $result = array();
         foreach($view as $name => $value)
         {
-            $type = $children[$name];
-
-            // override point allows type to hijack their encoding...
-            if (method_exists($type, 'transform_target_pgsql'))
-            {
-                $result[$name] = $type->transform_target_pgsql($value);
-            } 
             // this does not recurse because we only encode Entity_Columnable/Traversable Objects
-            else if ($value instanceof Entity_Array_Simple) // was is_array($value)
+            if ($value instanceof Entity_Array_Simple) // was is_array($value)
             {
                 $concatenated = '{';
                 foreach($value as $index => $subvalue)
@@ -797,7 +791,7 @@ implements Target_Selectable
                 $tmp = array();
                 foreach ($value as $k => $v) 
                 {
-                    if(is_scalar($v))
+                    if(is_null($v) || is_scalar($v))
                     {
                         $tmp[] = $this->addslashes($v);
                     }
@@ -809,28 +803,33 @@ implements Target_Selectable
                 if(count($tmp) == 0) $result[$name] = "{}";
                 else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
             }
-            else if ($type instanceof Type_Number) 
+            else
             {
-                $result[$name] = $value;
-            }
-            else if ($type instanceof Type_String) 
-            {
-                $value = trim($value);
-                if (empty($value))
-                {
-                    $result[$name] = NULL; // a null char
-                    // $result[$name] = 'NULL'; // a literal
-                }
-                else
+                $type = $children[$name];
+                
+                if ($type instanceof Type_Number) 
                 {
                     $result[$name] = $value;
-                    // $result[$name] = pg_escape_string($value);
                 }
-            }
-            else if ($type instanceof Type_Boolean) 
-            {
-                // encode boolean to string value
-                $result[$name] = $value ? 'true' : 'false';
+                else if ($type instanceof Type_String) 
+                {
+                    $value = trim($value);
+                    if (empty($value))
+                    {
+                        $result[$name] = NULL; // a null char
+                        // $result[$name] = 'NULL'; // a literal
+                    }
+                    else
+                    {
+                        $result[$name] = $value;
+                        // $result[$name] = pg_escape_string($value);
+                    }
+                }
+                else if ($type instanceof Type_Boolean) 
+                {
+                    // encode boolean to string value
+                    $result[$name] = $value ? 'true' : 'false';
+                }
             }
 
         }
@@ -992,7 +991,7 @@ implements Target_Selectable
                     , Target_Pgsql::VIEW_IMMUTABLE
                     , Target_Pgsql::VIEW_OPTIONAL) as $view)
         {
-            if ($row[$view]->lookup_entanglement_name($entanglement_name) !== false)
+            if ($row->offsetExists($view) and $row[$view]->lookup_entanglement_name($entanglement_name) !== false)
             {
                 return true;
             }
