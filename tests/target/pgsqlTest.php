@@ -12,7 +12,7 @@ extends Entity_Root
         $this[Entity_Root::VIEW_KEY]->set_attribute(Entity_Root::ATTR_REQUIRED, 'primary_id');
     
         $this[Entity_Root::VIEW_TS] = new Entity_Columnset('timestamp');
-        $this[Entity_Root::VIEW_TS]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'));
+        $this[Entity_Root::VIEW_TS]['modified_at'] = new Entity_Column('modified_at', Type::factory('date_time'));
         $this[Entity_Root::VIEW_TS]->set_attribute(Entity_Root::ATTR_REQUIRED, 'modified_at');
 
         $this['api'] = new Entity_Columnset('api');
@@ -23,7 +23,7 @@ extends Entity_Root
         
         $this[Target_Pgsql::VIEW_IMMUTABLE] = new Entity_Columnset('pgsql_mutable');
         $this[Target_Pgsql::VIEW_IMMUTABLE]['primary_id'] = new Entity_Column('primary_id', Type::factory('uuid'), Entity_Root::ATTR_REQUIRED);
-        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::factory('date'), Entity_Root::ATTR_REQUIRED);
+        $this[Target_Pgsql::VIEW_IMMUTABLE]['modified_at'] = new Entity_Column('modified_at', Type::factory('date_time'), Entity_Root::ATTR_REQUIRED);
                 
         $this[Target_Pgsql::VIEW_MUTABLE] = new Entity_Columnset('pgsql_mutable');
         $this[Target_Pgsql::VIEW_MUTABLE]['name'] = new Entity_Column('name', Type::factory('string'));

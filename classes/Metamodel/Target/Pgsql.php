@@ -25,15 +25,15 @@ implements Target_Selectable
      * mutable.
      */
     const VIEW_MUTABLE = 'pgsql_mutable';
-	
-	/**
+    
+    /**
      * Optinal columns are those which are updatable by clients of this code.  
      * computed fields such as distance ( in case of locations api) is an example
      */
 
-	const VIEW_OPTIONAL = 'pgsql_optional';
-	
-	
+    const VIEW_OPTIONAL = 'pgsql_optional';
+    
+    
     private $select_data;
     private $select_index;
     private $select_entity;
@@ -42,7 +42,6 @@ implements Target_Selectable
     public function __construct($debug_db = null)
     {
         $this->_debug_db = $debug_db;
-		$query = array();
     }
     
     public function validate_entity(Entity_Row $entity)
@@ -72,23 +71,23 @@ implements Target_Selectable
     {
         $entity = clone $entity;
         $info = $entity->get_root()->get_target_info($this);
-		$query = array();
-		
+        $query = array();
+        
         $sql = sprintf('SELECT count(*) AS count FROM %s', $info->get_view());            
         if (!is_null($selector)) 
         {
             if ($query = $selector->build_target_query($entity, $this, $query))
             {
                 if(is_array($query['WHERE_CLAUSE']))
-				{	
-	                $where = implode(', ', $query['WHERE_CLAUSE']);	
-					
-	                if (!empty($where))
-	                {
-	                    $sql = sprintf('%s WHERE %s', $sql, $where);
-	                }
-					
-				}
+                {    
+                    $where = implode(', ', $query['WHERE_CLAUSE']);    
+                    
+                    if (!empty($where))
+                    {
+                        $sql = sprintf('%s WHERE %s', $sql, $where);
+                    }
+                    
+                }
             }
             // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
         }
@@ -187,8 +186,8 @@ implements Target_Selectable
         $info = $entity->get_root()->get_target_info($this);
         $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
-		$query = array();
-		
+        $query = array();
+        
         if(!empty($problems))
         {
             throw new HTTP_Exception_400(var_export($problems, TRUE));
@@ -217,12 +216,12 @@ implements Target_Selectable
         else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
         {
             $query = $selector->build_target_query($entity, $this, $query);
-			$where = $query['WHERE_CLAUSE'];
-				
+            $where = $query['WHERE_CLAUSE'];
+                
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s'
                 , $info->get_table()
                 , implode(', ', array_map(
-                    function($a) {return sprintf('"%s" = :%s', $a, $a);}
+                    function($abc) {return sprintf('"%s" = :%s', $abc, $abc);}
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
                 ))
                 , implode(', ', $where)
@@ -232,8 +231,8 @@ implements Target_Selectable
         else
         {
             $query = $selector->build_target_query($entity, $this, $query);
-			$where = $query['WHERE_CLAUSE'];
-				
+            $where = $query['WHERE_CLAUSE'];
+                
             $sql = sprintf('UPDATE %s SET %s WHERE %s'
                 , $info->get_table()
                 , implode(', ', array_map(
@@ -253,6 +252,7 @@ implements Target_Selectable
 
         try 
         {
+            //TODO - This assumes our update has returned rows. We need to handle when 0 rows are affected
             $row = array_shift($results);
             $row = $this->decode($row);
 
@@ -278,10 +278,10 @@ implements Target_Selectable
     public function remove(Entity_Row $entity, Selector $selector)
     {
         $entity = clone $entity;
-		$query = array();
+        $query = array();
         $info = $entity->get_root()->get_target_info($this);
         $query = $selector->build_target_query($entity, $this, $query);
-		$where = implode(', ', $query['WHERE_CLAUSE']);
+        $where = implode(', ', $query['WHERE_CLAUSE']);
 
         $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
 
@@ -334,9 +334,9 @@ implements Target_Selectable
     public function select_deferred(Entity_Row $entity, Selector $selector = null)
     {
         $info = $entity->get_root()->get_target_info($this);
-		$query = array();
-		$query = $selector->build_target_query($entity, $this, $query);
-		
+        $query = array();
+        $query = $selector->build_target_query($entity, $this, $query);
+        
 
         $returning_fields = array_merge(
             array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
@@ -346,62 +346,62 @@ implements Target_Selectable
         );
         
 
-		if(isset($query['SELECT'] ))
-			$returning_fields[] = $query['SELECT'];
-		
-		
-		
+        if(isset($query['SELECT'] ))
+            $returning_fields[] = $query['SELECT'];
+        
+        
+        
         if (is_null($info->get_view())) {
 
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
         $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($returning_fields)), $info->get_view());            
 
-	         
+             
 
         if (!is_null($selector)) 
         {
             if(is_array($query['WHERE_CLAUSE']))
-			{
-	            if ($where = implode(', ', $query['WHERE_CLAUSE']))
-	            {
-	              
-				  $sql = sprintf('%s WHERE %s', $sql, $where);
-				  
-				    /*if ('()' != $where)
-	                {
-	                    $sql = sprintf('%s WHERE %s', $sql, $where);
-	                }
-					*/
-	            }
-			}
-			$query = $selector->build_target_sort($entity, $this, $query);
-			$sort_by = '';
-			if(isset($query['SORT_BY']))
-			{
-				$sort_by = $query['SORT_BY'];
-				
-			}
-			 
-			 
-			$query = $selector->build_target_page($entity, $this, $query);	
-			
-			$page_is = '';
-			if(isset($query['LIMIT']))
-			{
-				$page_is = $query['LIMIT'];
-			}	
+            {
+                if ($where = implode(', ', $query['WHERE_CLAUSE']))
+                {
+                  
+                  $sql = sprintf('%s WHERE %s', $sql, $where);
+                  
+                    /*if ('()' != $where)
+                    {
+                        $sql = sprintf('%s WHERE %s', $sql, $where);
+                    }
+                    */
+                }
+            }
+            $query = $selector->build_target_sort($entity, $this, $query);
+            $sort_by = '';
+            if(isset($query['SORT_BY']))
+            {
+                $sort_by = $query['SORT_BY'];
+                
+            }
+             
+             
+            $query = $selector->build_target_page($entity, $this, $query);    
+            
+            $page_is = '';
+            if(isset($query['LIMIT']))
+            {
+                $page_is = $query['LIMIT'];
+            }    
            // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this, $query), $selector->build_target_page($entity, $this));
-       	 	$sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
+                $sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
        
        
         }
-		
-		//echo $sql;
-		
-		
+        
+        //echo $sql;
+        
+        
 
-		$this->select_query = $query;
+        $this->select_query = $query;
         $this->select_data = $this->query(Database::SELECT, $sql)->execute()->as_array();
         $this->select_index = 0;
         $this->select_entity = $entity;
@@ -420,10 +420,9 @@ implements Target_Selectable
             $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
             $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
-			$entity[Target_Pgsql::VIEW_OPTIONAL] = $row;
-			
-			
-        	return $entity;
+            $entity[Target_Pgsql::VIEW_OPTIONAL] = $row;
+
+            return $entity;
         }
         return false;
     }
@@ -440,118 +439,136 @@ implements Target_Selectable
     public function visit_selector_security(Type_Typeable $type, $sortable) {
         if ($type instanceof Type_Number)
         {
-            return array(
-                Selector::SEARCH,
-                Selector::EXACT,
-                Selector::RANGE_MAX,
-                Selector::RANGE_MIN,
-                Selector::RANGE,
-                Selector::ISNULL,
-                Selector::SORT,
-                Selector::DIST_RADIUS,
-            );
+            $allowed = array(
+                    Selector::SEARCH,
+                    Selector::EXACT,
+                    Selector::RANGE_MAX,
+                    Selector::RANGE_MIN,
+                    Selector::RANGE,
+                    Selector::ISNULL,
+                    Selector::DIST_RADIUS,
+                    );
         } 
         else if ($type instanceof Type_Date)
         {
-            return array(
-                Selector::EXACT,
-                Selector::RANGE_MAX,
-                Selector::RANGE_MIN,
-                Selector::RANGE,
-                Selector::SORT,
-            );
+            $allowed = array(
+                    Selector::EXACT,
+                    Selector::RANGE_MAX,
+                    Selector::RANGE_MIN,
+                    Selector::RANGE,
+                    );
 
         }
         else if ($type instanceof Type_Typeable)
         {
-            return array(
-                Selector::SEARCH,
-                Selector::EXACT,
-                Selector::ISNULL,
-                Selector::SORT,
-            );
+            $allowed = array(
+                    Selector::SEARCH,
+                    Selector::EXACT,
+                    Selector::ISNULL,
+                    );
         } 
+        
+        if ($sortable)
+        {
+            $allowed[] = Selector::SORT;
+        }
+
+        return $allowed;
     }
 
     /**
+     * visit_exact
+     *
      * satisfy selector visitor interface
      *
+     * @param mixed $entity
+     * @param mixed $column_storage_name
+     * @param array $query
+     * @access public
+     * @return void
      */
-    public function visit_exact($entity, $column_storage_name, $param, array $query)
+    public function visit_exact(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        // @TODO type check should be against column-type not param-value-type
-        if (is_numeric($param)) {
-            //return sprintf("(%s = %s)", $column_name, $param);
-			 $query['WHERE'][] = sprintf("(%s = %s)", $column_name, $param);
+        $children = $view->get_children();
+        if ($children[$alias] instanceof Type_Number) 
+        {
+            $query['WHERE'][] = sprintf("(%s = %s)", $alias, $search_value);
         } else {
-            //return sprintf("(%s = '%s')", $column_name, pg_escape_string($param));
-            $query['WHERE'][] = sprintf("(%s = '%s')", $column_name, pg_escape_string($param));
+            $query['WHERE'][] = sprintf("(%s = '%s')", $alias, pg_escape_string($search_value));
         }
-		
-		return $query;
+
+        return $query;
     }
-    
+
     /**
      * satisfy selector visitor interface
      *
      */ 
-    public function visit_search($entity, $column_storage_name, array $query, $param) 
+    public function visit_search(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-       // return sprintf("(%s ILIKE '%%%s%%')", $column_name, pg_escape_string($param));
-        $query['WHERE'][] = sprintf("(%s ILIKE '%s%%')", $column_name, pg_escape_string($param));
-        
-		return $query;
+        $words = explode(' ', $search_value);
+        foreach ($words as $word)
+        {
+            $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $alias, pg_escape_string($word));
+        }
+        return $query;
     }
 
     /**
      * satisfy selector visitor interface
      *
      */
-    public function visit_max($entity, $column_storage_name, array $query, $param) 
+    public function visit_max(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        if (is_numeric($param))
-          
-			 $query['WHERE'][] = sprintf("(%s <= %d)", $column_name, $param);
+        $children = $view->get_children();
+        if ($children[$alias] instanceof Type_Number)
+        {
+            $query['WHERE'][] = sprintf("(%s <= %d)", $alias, $search_value);
+        }
         else
+        {
             // handles dates
-            
-       		$query['WHERE'][] = sprintf("(%s <= '%s')", $column_name, $param);
-	   return $query;
+            $query['WHERE'][] = sprintf("(%s <= '%s')", $alias, $search_value);
+        }
+        return $query;
     }
 
     /**
      * satisfy selector visitor interface
      *
      */
-    public function visit_min($entity, $column_storage_name, array $query, $param) 
+    public function visit_min(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        if (is_numeric($param))
-            $query['WHERE'][] = sprintf("(%s >= %d)", $column_name, $param);
+        $children = $view->get_children();
+        if ($children[$alias] instanceof Type_Number)
+        {
+            $query['WHERE'][] = sprintf("(%s >= %d)", $alias, $search_value);
+        }
         else
+        {
             // handles dates
-            $query['WHERE'][] = sprintf("(%s >= '%s')", $column_name, $param);
-        
-		return $query;
+            $query['WHERE'][] = sprintf("(%s >= '%s')", $alias, $search_value);
+        }
+        return $query;
     }
 
     /**
      * satisfy selector visitor interface
      *
      */
-    public function visit_range($entity, $column_storage_name, array $query, $min, $max) 
+    public function visit_range(Entity_Columnset_Iterator $view, $alias, array $search_value, array $query)
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        if (is_numeric($min) && is_numeric($max))
-            $query['WHERE'][] = sprintf("(%s BETWEEN %d AND %d)", $column_name, $min, $max);
+        $children = $view->get_children();
+        if ($children[$alias] instanceof Type_Number)
+        {
+            $query['WHERE'][] = sprintf("(%s BETWEEN %d AND %d)", $alias, $search_value['min'], $search_value['max']);
+        }
         else
+        {
             // handles dates
-            $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $column_name, $min, $max);
-        
-		
+            $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $alias, $search_value['min'], $search_value['max']);
+        }
+
         return $query;
     }
 
@@ -561,60 +578,53 @@ implements Target_Selectable
      */
     public function visit_dist_radius($entity, $column_storage_name, array $query, $long, $lat, $radius) 
     {
+        // @TODO why is column name hard coded instead of being defined in a view_optional ?
         $column_name = "geom";
-		$radius = $radius * .01448;
+        $radius = $radius * .01448;
         if (is_numeric($long) && is_numeric($lat) && is_numeric($radius))
-		{
-			 //return sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
-			$query['WHERE'][] = sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
-			
-			// I want to get an additional computed field with the results
-			// round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
-			
-			$query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
-			
-			
-			
-		}
-       
-       return $query;
+        {
+            //return sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
+            $query['WHERE'][] = sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
+
+            // I want to get an additional computed field with the results
+            // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
+
+            $query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
+        }
+
+        return $query;
 
     }
-	
-	
+
+
     /**
      * satisfy selector visitor interface
      *
      */
-    public function visit_isnull($entity, $column_storage_name, array $query) 
+    public function visit_isnull(Entity_Columnset_Iterator $view, $alias, array $query) 
     {
-        $column_name = $this->visit_column_name($entity, $column_storage_name, $query);
-        //return sprintf("(%s IS NULL)", $column_name);
-        $query['WHERE'][] = sprintf("(%s IS NULL)", $column_name);
-		
-		return $query;
+        $query['WHERE'][] = sprintf("(%s IS NULL)", $alias);
+        return $query;
     }
 
     /**
      * satisfy selector visitor interface
      * @TODO remove unused $entity param
      */
-    public function visit_operator_and($entity, array $query) 
+    public function visit_operator_and(array $query) 
     {
-       	
-		
         $parts = array();
         if(!empty($query['WHERE'])) 
         {
-	        $parts = $query['WHERE'];	
-	        
-	        $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') AND (', $parts));
-			
-		}
-		//print_r($query);
-		
-		
-		return $query;
+            $parts = $query['WHERE'];    
+
+            $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') AND (', $parts));
+
+        }
+        //print_r($query);
+
+
+        return $query;
     }
 
     /**
@@ -622,38 +632,32 @@ implements Target_Selectable
      * @TODO remove unused $entity param
      *
      */
-    public function visit_operator_or($entity, array $query) 
+    public function visit_operator_or(array $query) 
     {
         $parts = array();
         if(!empty($query['WHERE'])) 
-        {	
-        	$parts = $query['WHERE'];	
-			//var_dump($parts);
-			
-			
-		
-        	$query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
-		}
-		
-		
-		return $query;
+        {    
+            $parts = $query['WHERE'];    
+            $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
+        }
+
+
+        return $query;
     }
 
     /**
      * satisfy selector visitor interface
      * @TODO remove unused $entity param
      */
-    public function visit_operator_not($entity, array $query) 
+    public function visit_operator_not(array $query) 
     {
         //return sprintf('NOT (%s)', $part);
         if (count($query['WHERE']) > 1) throw new Exception ('selector operation not cannot accept multiple parts');
-        
-		$part = $query['WHERE'][0];
+
+        $part = $query['WHERE'][0];
         $query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
-		
-		return $query;
-		
-		
+
+        return $query;
     }
 
     /**
@@ -662,81 +666,66 @@ implements Target_Selectable
      */
     public function visit_sort($entity, array $items, array $query) 
     {
-       
-        $sorts = array();
-        $i = 0;
+
         foreach($items as $current)
         {
-            $alias = "";	
-			
-			//$current = explode(', ', $current);
-			
+            $alias = "";    
+
+            //$current = explode(', ', $current);
+
             list($column_name, $direction) = $current;
-			
-			
-			$alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
-			
-			if(!$alias)	
-			{
-            	$alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
-				
-			}
-			
-			if(!$alias)
-			{
-				if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
-					$alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
-			}
-			if(!empty($alias))
-			{	
-			 
-	           /* $sorts[] = sprintf('%s %s'
-	                , $alias
-	                , ($direction == 'desc') ? 'DESC' : 'ASC'
-	            );
-				*/
-				$query['SORTS'][] = sprintf('%s %s'
-	                , $alias
-	                , ($direction == 'desc') ? 'DESC' : 'ASC'
-	            );
-			}
+
+
+            $alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
+
+            if(!$alias)    
+            {
+                $alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
+
+            }
+
+            if(!$alias)
+            {
+                if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
+                    $alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
+            }
+            if(!empty($alias))
+            {    
+                $query['SORTS'][] = sprintf('%s %s'
+                        , $alias
+                        , ($direction == 'desc') ? 'DESC' : 'ASC'
+                        );
+            }
         }
-		
 
-     		//   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
-     	
-	     	if (!empty($query['SORTS'])) 
-				$query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
-				
-	        return $query;
+        //   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
+        if (!empty($query['SORTS'])) 
+            $query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
+
+        return $query;
     }
 
-    public function visit_page($entity, $query, $limit, $offset = 0)
+    public function visit_page(array $query, $limit, $offset = 0)
     {
-       //print_r($limit);
-	   
-	   
-	    if (empty($limit)) return '';
-        //return sprintf('LIMIT %d OFFSET %d', $limit, $offset);
-        
+        if (empty($limit)) return '';
         $query['LIMIT'] = sprintf('LIMIT %d OFFSET %d', $limit, $offset);
-		
-		
-		return $query;
+        return $query;
     }
-    
+
     /**
      * Helper for the visit_*() interface that builds WHERE clauses out of selectors.
      * Responsible for looking up an actual column name as it is seen by Postgres.
      */
-    private function visit_column_name($entity, $column_storage_name, array $query)
+    public function lookup_entanglement_name($entity, $column_storage_name)
     {
-        foreach(array(Entity_Root::VIEW_KEY, 'timestamp', 'pgsql_immutable', 'pgsql_mutable') as $view_name)
+        foreach(array(Entity_Root::VIEW_KEY, Entity_Root::VIEW_TS, Target_Pgsql::VIEW_MUTABLE, Target_Pgsql::VIEW_IMMUTABLE,) as $view_name)
         {
-            $column_name = $entity[$view_name]->lookup_entanglement_name($column_storage_name);
-            if($column_name) return $column_name;
+            if ($alias = $entity[$view_name]->lookup_entanglement_name($column_storage_name))
+            {
+                return array($view_name,$alias);
+            }
         }
-        
+
         throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $entity->get_root()->get_name() . "\".");
     }
 
@@ -769,21 +758,14 @@ implements Target_Selectable
     public function encode(Entity_Structure $view)
     {
         $children = $view->get_children();
-        
+
         $view->validate();
-        
+
         $result = array();
         foreach($view as $name => $value)
         {
-            $type = $children[$name];
-            
-            // override point allows type to hijack their encoding...
-            if (method_exists($type, 'transform_target_pgsql'))
-            {
-                $result[$name] = $type->transform_target_pgsql($value);
-            } 
             // this does not recurse because we only encode Entity_Columnable/Traversable Objects
-            else if ($value instanceof Entity_Array_Simple) // was is_array($value)
+            if ($value instanceof Entity_Array_Simple) // was is_array($value)
             {
                 $concatenated = '{';
                 foreach($value as $index => $subvalue)
@@ -795,56 +777,61 @@ implements Target_Selectable
                     $concatenated .= $subvalue;
                 }
                 $concatenated .= '}';
-                
+
                 $result[$name] = $concatenated;
             }
             // flatten into an psql array
             else if ($value instanceof Traversable)
             {
                 $tmp = array();
-                foreach ($value as $k => $v) 
+                foreach ($value as $val2) 
                 {
-                    if(is_scalar($v))
+                    if(is_null($val2) || is_scalar($val2))
                     {
-                        $tmp[] = $this->addslashes($v);
+                        $tmp[] = $this->addslashes($val2);
                     }
                     else
                     {
-                        $tmp[] = $this->addslashes($this->encode($v));
+                        $tmp[] = $this->addslashes($this->encode($val2));
                     }
                 }
                 if(count($tmp) == 0) $result[$name] = "{}";
                 else $result[$name] = sprintf('{"%s"}', implode('","', $tmp));
             }
-            else if ($type instanceof Type_Number) 
+            else
             {
-                $result[$name] = $value;
-            }
-            else if ($type instanceof Type_String) 
-            {
-                $value = trim($value);
-                if (empty($value))
-                {
-                    $result[$name] = NULL; // a null char
-                    // $result[$name] = 'NULL'; // a literal
-                }
-                else
+                $type = $children[$name];
+                
+                if ($type instanceof Type_Number) 
                 {
                     $result[$name] = $value;
-                    // $result[$name] = pg_escape_string($value);
                 }
-            }
-            else if ($type instanceof Type_Boolean) 
-            {
-                // encode boolean to string value
-                $result[$name] = $value ? 'true' : 'false';
+                else if ($type instanceof Type_String) 
+                {
+                    $value = trim($value);
+                    if (empty($value))
+                    {
+                        $result[$name] = NULL; // a null char
+                        // $result[$name] = 'NULL'; // a literal
+                    }
+                    else
+                    {
+                        $result[$name] = $value;
+                        // $result[$name] = pg_escape_string($value);
+                    }
+                }
+                else if ($type instanceof Type_Boolean) 
+                {
+                    // encode boolean to string value
+                    $result[$name] = $value ? 'true' : 'false';
+                }
             }
 
         }
-        
+
         return $result;
     }
-    
+
     function addslashes($data)
     {
         if(is_string($data))
@@ -875,7 +862,7 @@ implements Target_Selectable
     public function decode($field) 
     {
         $array = null;
-				
+
         if (is_array($field))
         {
             foreach ($field as $k=>$v) 
@@ -907,12 +894,12 @@ implements Target_Selectable
 
         return $array;
     }
-    
+
     // help with pgsql exceptions
-    private function handle_exception(Kohana_Database_Exception  $e)
+    private function handle_exception(Kohana_Database_Exception  $exception)
     {
         $matches = array();
-        $message = $e->getMessage();
+        $message = $exception->getMessage();
         preg_match('/SQLSTATE\[(.+)]:/', $message, $matches);
         if(count($matches) > 0) {
             $sqlstate = $matches[1];
@@ -923,16 +910,16 @@ implements Target_Selectable
         switch ($sqlstate)
         {
             case 23503:
-                # Foreign key violation: 7 ERROR:
-                # insert or update on table "vintages" violates foreign key constraint "vintages_wine_id_fkey"
+# Foreign key violation: 7 ERROR:
+# insert or update on table "vintages" violates foreign key constraint "vintages_wine_id_fkey"
                 if (preg_match('/DETAIL:\s+Key \(([^)]+)\)=\(([^)]+)\) is not present in table "([^"]+)"/m', $message, $matches))
                 {
                     $message = sprintf('No such %s with (%s = %s) exists', $matches[3], $matches[1], $matches[2]);
                     throw new HTTP_Exception_404($message);
                 }
-                # Foreign key violation: 7 ERROR:
-                # update or delete on table \"wineries\" violates foreign key constraint \"wines_winery_id_fkey\" on table \"wines\"
-                # DETAIL:  Key (winery_id)=(877d2b0a-6afe-11e2-a083-005056900008) is still referenced from table \"wines\".
+# Foreign key violation: 7 ERROR:
+# update or delete on table \"wineries\" violates foreign key constraint \"wines_winery_id_fkey\" on table \"wines\"
+# DETAIL:  Key (winery_id)=(877d2b0a-6afe-11e2-a083-005056900008) is still referenced from table \"wines\".
                 else if (preg_match('/Foreign key violation/', $message, $matches))
                 {
                     if(preg_match('/DETAIL:\s+Key \(([^)]+)\)=\([^)]+\) is still referenced from table "([^"]+)"/m', $message, $matches))
@@ -965,27 +952,25 @@ implements Target_Selectable
         } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
         }
-        
+
         $entities = array();
-        $info = $template_entity->get_root()->get_target_info($this);
-		
         foreach($results as $row) 
         {
-        	
-        	$row = $this->decode($row);
-			
+
+            $row = $this->decode($row);
+
             $entity = clone $template_entity;
             $entity[Entity_Root::VIEW_KEY] = $row;
             $entity[Entity_Root::VIEW_TS] = $row;
             $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
             $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
-			
+
             $entities[] = $entity;
         }
-		
+
         return $entities;
     }
-    
+
     public function debug_info()
     {
         return NULL;
@@ -997,9 +982,9 @@ implements Target_Selectable
                     , Entity_Root::VIEW_TS
                     , Target_Pgsql::VIEW_MUTABLE
                     , Target_Pgsql::VIEW_IMMUTABLE
-					, Target_Pgsql::VIEW_OPTIONAL) as $view)
+                    , Target_Pgsql::VIEW_OPTIONAL) as $view)
         {
-            if ($row[$view]->lookup_entanglement_name($entanglement_name) !== false)
+            if ($row->offsetExists($view) and $row[$view]->lookup_entanglement_name($entanglement_name) !== false)
             {
                 return true;
             }
@@ -1010,5 +995,14 @@ implements Target_Selectable
     public function add_selectable(Entity_Store $entity, Selector $selector)
     {
         return true;
+    }
+
+    public function lookup_entanglement_data(Entity_Columnset_Iterator $view, $alias, $default)
+    {
+        if (array_key_exists($alias, $view))
+        {
+            return $view[$alias];
+        }
+        return $default;
     }
 }
