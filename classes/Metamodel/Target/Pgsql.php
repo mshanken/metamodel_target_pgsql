@@ -507,9 +507,13 @@ implements Target_Selectable
     public function visit_search(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
     {
         $words = explode(' ', $search_value);
-        foreach ($words as $word)
+        foreach ($words as $token)
         {
-            $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $alias, pg_escape_string($word));
+            // @TODO we should have a word-break char before the search token, but 
+            // we must handle beginning of string cases...
+            // $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $alias, pg_escape_string($token));
+
+            $query['WHERE'][] = sprintf("(%s ILIKE '%s%%')", $alias, pg_escape_string($token));
         }
         return $query;
     }
