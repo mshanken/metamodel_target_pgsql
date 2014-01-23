@@ -513,7 +513,7 @@ implements Target_Selectable
             // we must handle beginning of string cases...
             // $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $alias, pg_escape_string($token));
 
-            $query['WHERE'][] = sprintf("(%s ILIKE '%s%%')", $alias, pg_escape_string($token));
+            $query['WHERE'][] = sprintf("(%s ILIKE '%%%s%%')", $alias, pg_escape_string($token));
         }
         return $query;
     }
@@ -740,6 +740,8 @@ implements Target_Selectable
     private function query($mode, $sql)
     {
         // error_log( $sql );
+        //echo $sql;
+		
         if(!is_null($this->_debug_db))
         {
             return $this->_debug_db->query($mode, $sql);
