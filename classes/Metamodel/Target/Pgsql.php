@@ -336,7 +336,7 @@ implements Target_Selectable
         $info = $entity->get_root()->get_target_info($this);
         $query = array();
         $query = $selector->build_target_query($entity, $this, $query);
-        
+       // print_r($query);
 
         $returning_fields = array_merge(
             array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
@@ -375,7 +375,8 @@ implements Target_Selectable
                     */
                 }
             }
-            $query = $selector->build_target_sort($entity, $this, $query);
+			if (empty($quert['SORT_BY']))
+            	$query = $selector->build_target_sort($entity, $this, $query);
             $sort_by = '';
             if(isset($query['SORT_BY']))
             {
@@ -447,6 +448,7 @@ implements Target_Selectable
                     Selector::RANGE,
                     Selector::ISNULL,
                     Selector::DIST_RADIUS,
+                    Selector::NEARBY,
                     );
         } 
         else if ($type instanceof Type_Date)
@@ -600,7 +602,30 @@ implements Target_Selectable
 
     }
 
+    /**
+     * satisfy selector visitor interface
+     *
+     */
+    public function visit_nearby($entity, $column_storage_name, array $query, $long, $lat) 
+    {
+        // @TODO why is column name hard coded instead of being defined in a view_optional ?
+        $column_name = "geom";
+      //echo "AM I IN VISIT_NEARBY";
+      
+        if (is_numeric($long) && is_numeric($lat))
+        {
+            $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
+            $query['SORTS'] = array();
+        	
+        }
+        // print_r($query);
+		 				
 
+        return $query;
+
+    }
+	
+	
     /**
      * satisfy selector visitor interface
      *
@@ -670,7 +695,10 @@ implements Target_Selectable
      */
     public function visit_sort($entity, array $items, array $query) 
     {
-
+		
+		
+		if(empty($query['SORT_BY']))
+		{
         foreach($items as $current)
         {
             $alias = "";    
@@ -702,9 +730,17 @@ implements Target_Selectable
             }
         }
 
+
         //   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
         if (!empty($query['SORTS'])) 
+		{
+            //echo "or here";	
             $query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
+		}
+		}
+		//print_r($query);
+		
+		
 
         return $query;
     }
@@ -741,6 +777,7 @@ implements Target_Selectable
     {
         // error_log( $sql );
         //echo $sql;
+		
 		
         if(!is_null($this->_debug_db))
         {
