@@ -375,8 +375,12 @@ implements Target_Selectable
                     */
                 }
             }
-			if (empty($quert['SORT_BY']))
+			
+			if (empty($query['SORT_BY']))
+			{
+				//var_dump($query);
             	$query = $selector->build_target_sort($entity, $this, $query);
+			}
             $sort_by = '';
             if(isset($query['SORT_BY']))
             {
@@ -467,6 +471,7 @@ implements Target_Selectable
                     Selector::SEARCH,
                     Selector::EXACT,
                     Selector::ISNULL,
+                    Selector::DIST_RADIUS,
                     );
         } 
         
@@ -582,40 +587,107 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_dist_radius($entity, $column_storage_name, array $query, $long, $lat, $radius) 
+    public function visit_dist_radius(Entity_Columnset_Iterator $view, $alias, array $query, $long, $lat, $radius) 
     {
-        // @TODO why is column name hard coded instead of being defined in a view_optional ?
-        $column_name = "geom";
-        $radius = $radius * .01448;
+        /*
+			 * The geocodes are coded with Spatial Reference system ID (SRID) = 4326 
+			 * The output of ST_Distance and ST_DWithin is in degrees, to convert the output in nomal distance
+			 * measurements, following conversion units are used
+			 * 1 degree = 111128 meters -- dist: displays the distance from the point in meters
+			 * 1 kilometer x 0.00899 = degrees -- used to feed the ST_DWithin function
+			 * 
+			 * 1 degree = 1 latitude = 69.047 statute miles = 60 nautical miles = 111.12 kilometers // http://www.dslreports.com/faq/14295
+			 *  
+			 * A nautical mile is 1,852 meters, or 1.852 kilometers. 
+			 * In the English measurement system, a nautical mile is 1.1508 miles, or 6,076 feet. // http://science.howstuffworks.com/innovation/science-questions/question79.htm
+			 *
+			 * There from above we can convert
+			 * 
+			 * 1 degree = 60 x 1.1508 miles = 69.048 miles
+			 * 1 Mile = 1/ 60 x 1.1508 = 0.01448
+			 * 
+			 * If you have to use meters/kilometers in the api use the following multipliers for distance
+			 * In ST_Distance function multiply with 111128 ---- which converts degrees output from ST_Distance to Kilometers
+			 * and in the params array, multiply the distance with 0.00899 which would convert the kilometers passed from external apps to degrees
+			 * 
+			 * Similarly, If you have to use miles in the api use the following multipliers for distance
+			 * In ST_Distance function multiply with 69.048 ---- which converts degrees output from ST_Distance to Kilometers
+			 * and in the params array, multiply the distance with 0.01448 which would convert the kilometers passed from external apps to degrees
+			 * 
+			 * 
+			 * */	
+		
+		// @@TODO Set the SRID (=4326) in config file, so we do not need to hard-code it
+        $column_name = $alias;
+		
+		$radius = $radius * .01448;  // converting radius passed in Mile into degrees as required by ST_DWithin function
+		
         if (is_numeric($long) && is_numeric($lat) && is_numeric($radius))
         {
-            //return sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
-            $query['WHERE'][] = sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
+		
+				$children = $view->get_children();
+				
+		        if ($children[$alias] instanceof Type_Geometry)
+		        {
+		        	//echo "found geometry type column";
+					
+					 //return sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
+                    $query['WHERE'][] = sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
 
-            // I want to get an additional computed field with the results
-            // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
+                   // I want to get an additional computed field with the results
+                  // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
 
-            $query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
-        }
+                   $query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
+        
+					
+					
+				}
+				elseif ($children[$alias] instanceof Type_Point) {
+					
+					
+					 $query['WHERE'][] = sprintf("ST_DWithin(ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
 
-        return $query;
+                   // I want to get an additional computed field with the results
+                  // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
+
+                     $query['SELECT'] = sprintf("round ( cast(((ST_Distance( ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
+        
+					
+				}
+				else {
+					
+					 throw new Exception ('Wrong data type field paseed to the selector. Selector accepts only Geometry or Point fields ');
+				}
+				
+				
+				 return $query;
+				
+		}
+     
+           
 
     }
+
+
 
     /**
      * satisfy selector visitor interface
      *
      */
-    public function visit_nearby($entity, $column_storage_name, array $query, $long, $lat) 
+    public function sort_nearby($entity, $column_storage_name, array $query, $long, $lat) 
     {
         // @TODO why is column name hard coded instead of being defined in a view_optional ?
+        // since for geom column which is a geometry type field there is no type defined in metamodel
+        // it would be nice to have the geometry type defined in metamodel in order to just pass geom in the selector
+        // I am currently using latitude in the selector which is kind of silly, just because I can associate the visit to numeric data type
+        
         $column_name = "geom";
-      //echo "AM I IN VISIT_NEARBY";
       
         if (is_numeric($long) && is_numeric($lat))
         {
-            $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
-            $query['SORTS'] = array();
+          // $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
+            $query['SORTS'][] = sprintf("%s <-> 'SRID=4326;POINT(%f %f)'::geometry", $column_storage_name, $long, $lat);;
+			
         	
         }
         // print_r($query);
@@ -695,53 +767,60 @@ implements Target_Selectable
      */
     public function visit_sort($entity, array $items, array $query) 
     {
-		
-		
-		if(empty($query['SORT_BY']))
-		{
-        foreach($items as $current)
-        {
-            $alias = "";    
-
-            //$current = explode(', ', $current);
-
-            list($column_name, $direction) = $current;
-
-
-            $alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
-
-            if(!$alias)    
-            {
-                $alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
-
-            }
-
-            if(!$alias)
-            {
-                if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
-                    $alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
-            }
-            if(!empty($alias))
-            {    
-                $query['SORTS'][] = sprintf('%s %s'
-                        , $alias
-                        , ($direction == 'desc') ? 'DESC' : 'ASC'
-                        );
-            }
-        }
-
-
-        //   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
-        if (!empty($query['SORTS'])) 
-		{
-            //echo "or here";	
-            $query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
-		}
-		}
-		//print_r($query);
-		
-		
-
+	        foreach($items as $current)
+	        {
+	        		
+			        $alias = "";    
+	
+	                //$current = explode(', ', $current);
+	
+	                list($column_name, $direction, $coordinates) = $current;
+	
+                    // get name of the column name as seen by Target Pgsql
+	                $alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
+	
+	                if(!$alias)    
+	                {
+	                    $alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
+	
+	                }
+	
+	                if(!$alias)
+	                {
+	                    if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
+	                        $alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
+	                }
+	                if(!empty($alias) && !is_array($current[2]))
+	                {
+	                    $query['SORTS'][] = sprintf('%s %s'
+	                        , $alias
+	                        , ($direction == 'desc') ? 'DESC' : 'ASC'
+	                        );
+	                }
+					elseif(!empty($alias) && is_array($current[2])) 
+					{
+						//this is a special case for k nearest neighbors search using postgis KNN index
+						
+					    $long = $coordinates[0];
+			    	    $lat = $coordinates[1];
+					
+					    $query = $this->sort_nearby($entity, $alias, $query, $long, $lat);
+					
+					
+					}
+	            }
+               
+         
+	        //   if (!empty($sorts)) return sprintf('ORDER BY %s', implode(',', $sorts));
+	        /*
+	        if (!empty($query['SORTS'])) 
+			{
+	            //echo "or here";	
+	            $query['SORT_BY'] = sprintf('ORDER BY %s', implode(',', $query['SORTS']));
+				
+			}
+			 */
+	
         return $query;
     }
 
@@ -773,10 +852,11 @@ implements Target_Selectable
      * choke point for overriding/caching and logging of queries
      *
      */
+      
     private function query($mode, $sql)
     {
         // error_log( $sql );
-        //echo $sql;
+        // echo $sql;
 		
 		
         if(!is_null($this->_debug_db))
