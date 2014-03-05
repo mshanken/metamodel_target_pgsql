@@ -328,53 +328,23 @@ implements Target_Selectable
     }
 
 
+// select helper
 
-
-    // select helper
     public function select_deferred(Entity_Row $entity, Selector $selector = null)
     {
         $info = $entity->get_root()->get_target_info($this);
         $query = array();
         $query = $selector->build_target_query($entity, $this, $query);
-       // print_r($query);
+       
+      // echo "my query is:";
+      // print_r($query);
 
-        $returning_fields = array_merge(
-            array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
-        );
-        
-
-        if(isset($query['SELECT'] ))
-            $returning_fields[] = $query['SELECT'];
-        
-        
-        
-        if (is_null($info->get_view())) {
-
-            throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
-        }
-        $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($returning_fields)), $info->get_view());            
-
-             
+       
 
         if (!is_null($selector)) 
         {
-            if(is_array($query['WHERE_CLAUSE']))
-            {
-                if ($where = implode(', ', $query['WHERE_CLAUSE']))
-                {
-                  
-                  $sql = sprintf('%s WHERE %s', $sql, $where);
-                  
-                    /*if ('()' != $where)
-                    {
-                        $sql = sprintf('%s WHERE %s', $sql, $where);
-                    }
-                    */
-                }
-            }
+           //echo "found selector";
+		  
 			
 			if (empty($query['SORT_BY']))
 			{
@@ -397,13 +367,50 @@ implements Target_Selectable
                 $page_is = $query['LIMIT'];
             }    
            // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this, $query), $selector->build_target_page($entity, $this));
-                $sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
-       
+              
+       		//echo "my where clause is: ".$query['WHERE_CLAUSE'];
+	   		
+           
+		
        
         }
+
+			 $returning_fields = array_merge(
+            array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
+            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
+			//, $query['SELECT']
+        );
         
-        //echo $sql;
+		if (!empty($query['SELECT']))
+			$query['SELECT'] = array_merge( $returning_fields, $query['SELECT']);
+		
+		else 
+			$query['SELECT'] = $returning_fields;
         
+        
+        if (is_null($info->get_view())) {
+
+            throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
+        }
+        $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($query['SELECT'])), $info->get_view()); 
+		
+		if(isset($query['WHERE_CLAUSE']))
+		{
+		 if(is_array($query['WHERE_CLAUSE']))
+            {
+                
+                if ($where = implode(', ', $query['WHERE_CLAUSE']))
+                {
+                  
+                  $sql = sprintf('%s WHERE %s', $sql, $where);
+                  
+                }
+            } 
+		}
+		  $sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
+       // echo $sql;
         
 
         $this->select_query = $query;
@@ -411,6 +418,7 @@ implements Target_Selectable
         $this->select_index = 0;
         $this->select_entity = $entity;
     }
+
 
     public function next_row() 
     {
@@ -637,7 +645,7 @@ implements Target_Selectable
                    // I want to get an additional computed field with the results
                   // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
 
-                   $query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
+                //   $query['SELECT'] = sprintf("round ( cast(((ST_Distance(%s, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
         
 					
 					
@@ -649,9 +657,10 @@ implements Target_Selectable
 
                    // I want to get an additional computed field with the results
                   // round ( cast(((ST_Distance(geom, ST_GeometryFromText('POINT(:latitude :longitude)',4326))) * 69.048) as numeric), 2) dist
-
-                     $query['SELECT'] = sprintf("round ( cast(((ST_Distance( ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_name, $long, $lat );
+					
+				//	$query['SELECT'] = sprintf("round ( cast(((ST_Distance( ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_storage_name, $long, $lat );
         
+                     
 					
 				}
 				else {
@@ -688,7 +697,8 @@ implements Target_Selectable
           // $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
             $query['SORTS'][] = sprintf("%s <-> 'SRID=4326;POINT(%f %f)'::geometry", $column_storage_name, $long, $lat);;
 			
-        	
+        	$query['SELECT'][] = sprintf("round ( cast(((ST_Distance( ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_storage_name, $long, $lat );
+        
         }
         // print_r($query);
 		 				

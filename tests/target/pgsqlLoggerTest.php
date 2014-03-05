@@ -247,7 +247,8 @@ class PgsqlLoggerTest extends Unittest_TestCase
             array(),
             array()
         );
-                
+         
+		 //var_dump($selector);   
         $target->update($one, $selector);
 
         $two = Entity_Two::factory();
