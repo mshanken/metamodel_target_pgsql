@@ -121,12 +121,14 @@ extends Kohana_Database
     }
     
     public function expect($sql, $parameters, $result)
-    {
+    {	
         $this->_expectations[] = new Mock_Database_Expectation_Pgsql_Logger($sql, $parameters, $result);
     }
     
     public function actual($sql, $parameters)
     {
+        	//var_dump($parameters);
+			
         if(empty($this->_expectations))
         {
             throw new Mock_Database_Exception_Pgsql_Logger("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
@@ -135,7 +137,8 @@ extends Kohana_Database
         $expectation = array_shift($this->_expectations);
         
         return $expectation->match($sql, $parameters);
-        
+       
+	    
         return $result;
     }
 }
@@ -156,16 +159,18 @@ class Mock_Database_Expectation_Pgsql_Logger
         $this->_sql = $sql;
         $this->_parameters = $parameters;
         $this->_result = $result;
+		
     }
     
     public function match($sql, $parameters)
     {
         if($sql != $this->_sql)
         {
+        	echo "why am I here?";
             throw new Mock_Database_Exception_Pgsql_Logger("Expected the SQL \"" . $this->_sql
                 . "\", but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
-        
+		
         return new Mock_Result_Pgsql_Logger($this->_result);
     }
 }
@@ -194,6 +199,9 @@ class Mock_Query_Pgsql_Logger
     
     public function execute()
     {
+        	//var_dump($this);
+			//var_dump($this->parameter);
+			
         return $this->_db->actual($this->_sql, $this->_params);
     }
     

@@ -243,7 +243,11 @@ implements Target_Selectable
             );
         }
 
+
         $query = $this->query(Database::SELECT, $sql);
+		
+		//var_dump($query);
+		
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
         $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
         $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
@@ -336,20 +340,16 @@ implements Target_Selectable
         $query = array();
         $query = $selector->build_target_query($entity, $this, $query);
        
-      // echo "my query is:";
-      // print_r($query);
-
-       
 
         if (!is_null($selector)) 
         {
-           //echo "found selector";
-		  
-			
+           
 			if (empty($query['SORT_BY']))
 			{
 				//var_dump($query);
             	$query = $selector->build_target_sort($entity, $this, $query);
+				
+				
 			}
             $sort_by = '';
             if(isset($query['SORT_BY']))
@@ -357,10 +357,9 @@ implements Target_Selectable
                 $sort_by = $query['SORT_BY'];
                 
             }
-             
-             
-            $query = $selector->build_target_page($entity, $this, $query);    
-            
+                
+            $query = $selector->build_target_page($entity, $this, $query);  
+
             $page_is = '';
             if(isset($query['LIMIT']))
             {
@@ -370,10 +369,22 @@ implements Target_Selectable
               
        		//echo "my where clause is: ".$query['WHERE_CLAUSE'];
 	   		
-           
-		
+           if(isset($query['WHERE_CLAUSE']))
+		   {
+		       if(is_array($query['WHERE_CLAUSE']))
+               {
+                    if ($where = implode(', ', $query['WHERE_CLAUSE']))
+                    {
+                  
+                      $where = sprintf('WHERE %s', $where);
+                  
+                   }
+               } 
+		   }
+	
        
         }
+
 
 			 $returning_fields = array_merge(
             array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
@@ -396,29 +407,17 @@ implements Target_Selectable
         }
         $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($query['SELECT'])), $info->get_view()); 
 		
-		if(isset($query['WHERE_CLAUSE']))
-		{
-		 if(is_array($query['WHERE_CLAUSE']))
-            {
-                
-                if ($where = implode(', ', $query['WHERE_CLAUSE']))
-                {
-                  
-                  $sql = sprintf('%s WHERE %s', $sql, $where);
-                  
-                }
-            } 
-		}
+	    if(!empty($where))
+		     $sql = sprintf('%s %s', $sql, $where);
+		 
 		  $sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
-       // echo $sql;
-        
+        //echo $sql;
 
         $this->select_query = $query;
         $this->select_data = $this->query(Database::SELECT, $sql)->execute()->as_array();
         $this->select_index = 0;
         $this->select_entity = $entity;
     }
-
 
     public function next_row() 
     {
@@ -834,9 +833,9 @@ implements Target_Selectable
         return $query;
     }
 
-    public function visit_page(array $query, $limit, $offset = 0)
+    public function visit_page($limit, $offset = 0, array $query)
     {
-        if (empty($limit)) return '';
+        if (empty($limit)) return $query;
         $query['LIMIT'] = sprintf('LIMIT %d OFFSET %d', $limit, $offset);
         return $query;
     }
@@ -865,8 +864,9 @@ implements Target_Selectable
       
     private function query($mode, $sql)
     {
-        // error_log( $sql );
-        // echo $sql;
+         //error_log( $sql );
+         //echo "in query";
+         //echo $sql;
 		
 		
         if(!is_null($this->_debug_db))
