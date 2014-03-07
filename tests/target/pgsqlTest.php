@@ -210,7 +210,7 @@ class PgsqlTest extends Unittest_TestCase
                 ),
             )
         );
-		//var_dump($selector);
+      //var_dump($selector);
         
         $rows = $target->select($entity, $selector);
         

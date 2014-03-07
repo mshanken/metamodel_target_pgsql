@@ -127,8 +127,6 @@ extends Kohana_Database
     
     public function actual($sql, $parameters)
     {
-        	//var_dump($parameters);
-			
         if(empty($this->_expectations))
         {
             throw new Mock_Database_Exception_Pgsql_Logger("Was not expecting SQL, but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
@@ -166,7 +164,6 @@ class Mock_Database_Expectation_Pgsql_Logger
     {
         if($sql != $this->_sql)
         {
-        	echo "why am I here?";
             throw new Mock_Database_Exception_Pgsql_Logger("Expected the SQL \"" . $this->_sql
                 . "\", but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
@@ -199,9 +196,6 @@ class Mock_Query_Pgsql_Logger
     
     public function execute()
     {
-        	//var_dump($this);
-			//var_dump($this->parameter);
-			
         return $this->_db->actual($this->_sql, $this->_params);
     }
     
@@ -256,7 +250,6 @@ class PgsqlLoggerTest extends Unittest_TestCase
             array()
         );
          
-		 //var_dump($selector);   
         $target->update($one, $selector);
 
         $two = Entity_Two::factory();
