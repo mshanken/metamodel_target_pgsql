@@ -121,7 +121,7 @@ extends Kohana_Database
     }
     
     public function expect($sql, $parameters, $result)
-    {
+    {	
         $this->_expectations[] = new Mock_Database_Expectation_Pgsql_Logger($sql, $parameters, $result);
     }
     
@@ -135,7 +135,8 @@ extends Kohana_Database
         $expectation = array_shift($this->_expectations);
         
         return $expectation->match($sql, $parameters);
-        
+       
+	    
         return $result;
     }
 }
@@ -156,6 +157,7 @@ class Mock_Database_Expectation_Pgsql_Logger
         $this->_sql = $sql;
         $this->_parameters = $parameters;
         $this->_result = $result;
+		
     }
     
     public function match($sql, $parameters)
@@ -165,7 +167,7 @@ class Mock_Database_Expectation_Pgsql_Logger
             throw new Mock_Database_Exception_Pgsql_Logger("Expected the SQL \"" . $this->_sql
                 . "\", but got \"" . $sql . "\" " . var_export($parameters, TRUE) . ".");
         }
-        
+		
         return new Mock_Result_Pgsql_Logger($this->_result);
     }
 }
@@ -247,7 +249,7 @@ class PgsqlLoggerTest extends Unittest_TestCase
             array(),
             array()
         );
-                
+         
         $target->update($one, $selector);
 
         $two = Entity_Two::factory();
