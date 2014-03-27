@@ -79,7 +79,6 @@ extends Metamodel_Target_Pgsql
         $key = $this->get_key($entity, $selector);
         if (count($value) == 1)
         {
-            // return $this->memcache->set($key, serialize($results), MEMCACHE_COMPRESSED, 2592000);
             return $this->memcache->set($key, serialize($value), 0, Kohana::$config->load('memcache.db_cache_ttl'));
         }
         return false;
@@ -113,6 +112,7 @@ extends Metamodel_Target_Pgsql
      */
     public function update(Entity_Row $entity, Selector $selector)    
     {
+        $this->memcache->delete($this->get_key($entity, $selector));
         $results = parent::update($entity, $selector);
         $this->set_cache($entity, $selector, $results);
         return $results;

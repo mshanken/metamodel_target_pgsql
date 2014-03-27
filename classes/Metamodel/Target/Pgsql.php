@@ -265,7 +265,10 @@ implements Target_Selectable
             $out = $this->select($entity, $selector);
         } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
+        } catch (Exception $e) {
+            throw new HTTP_Exception_500($sql . "\n0000\n " . var_export($row, true) );
         }
+
 
         Logger::reset('validation');
         return $out;
