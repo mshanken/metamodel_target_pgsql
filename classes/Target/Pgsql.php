@@ -1,1 +1,1 @@
-<?php Class Target_Pgsql extends Metamodel_Target_Pgsql_Memcache {}
+<?php Class Target_Pgsql extends Metamodel_Target_Pgsql {}
