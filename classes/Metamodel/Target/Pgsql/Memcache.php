@@ -45,6 +45,7 @@ extends Metamodel_Target_Pgsql
     protected function get_key(Entity_Row $entity, Selector $selector)
     {
         return sprintf('pg_%s_%s', $entity->get_root()->get_name() , $selector->render());
+        //return sprintf('pg_%s_%s', $entity->get_root()->get_name() , implode('_', $key));
     }
 
     /**
@@ -60,6 +61,8 @@ extends Metamodel_Target_Pgsql
         $key = $this->get_key($entity, $selector);
         if ($cache = $this->memcache->get($key))
         {
+            error_log("MEMCACHE :: GET :: $key ");
+
             return unserialize($cache);
         }
         return false;
@@ -79,6 +82,7 @@ extends Metamodel_Target_Pgsql
         $key = $this->get_key($entity, $selector);
         if (count($value) == 1)
         {
+            error_log("MEMCACHE :: SET :: $key ");
             return $this->memcache->set($key, serialize($value), 0, Kohana::$config->load('memcache.db_cache_ttl'));
         }
         return false;
@@ -94,6 +98,8 @@ extends Metamodel_Target_Pgsql
      */
     public function select(Entity_Row $entity, Selector $selector = null)
     {
+//        error_log( "\n\n".$entity->get_root()->get_name()."\n\n" );
+//        error_log( var_export(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS),true) );
         if (!($results = $this->get_cache($entity, $selector)))
         {
             $results = parent::select($entity, $selector);
@@ -112,9 +118,17 @@ extends Metamodel_Target_Pgsql
      */
     public function update(Entity_Row $entity, Selector $selector)    
     {
-        $this->memcache->delete($this->get_key($entity, $selector));
+        $cache_selector = clone $selector;
+        foreach ($entity[Entity_Root::VIEW_TS] as $field => $value)
+        {
+            $cache_selector->strike($field);
+        }
+
+        $this->memcache->delete($this->get_key($entity, $cache_selector));
+
         $results = parent::update($entity, $selector);
-        $this->set_cache($entity, $selector, $results);
+
+        $this->set_cache($entity, $cache_selector, $results);
         return $results;
     }
 
@@ -132,5 +146,16 @@ extends Metamodel_Target_Pgsql
         return parent::remove($entity, $selector);
     }
 
+
+    public function select_count(Entity_Row $entity, Selector $selector = null)
+    {
+        if (!($results = $this->get_cache($entity, $selector)))
+        {
+            $results = parent::select($entity, $selector);
+            $this->set_cache($entity, $selector, $results);
+        }
+        return $results;
+       
+    }
 }
 
