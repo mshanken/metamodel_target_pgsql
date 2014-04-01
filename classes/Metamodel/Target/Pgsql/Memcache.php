@@ -8,7 +8,7 @@
  *
  **/
 class Metamodel_Target_Pgsql_Memcache
-extends Metamodel_Target_Pgsql
+extends Target_Pgsql
 {
     
     /**
