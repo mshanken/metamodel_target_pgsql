@@ -119,27 +119,67 @@ implements Target_Selectable
             , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
             , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
             , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
-        );
+            );
 
         $mutable_keys = array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children());
 
         if (!is_null($info->get_create_function())) 
         { 
             $sql = sprintf('SELECT %s FROM %s(:%s)',
-                implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
-                , $info->get_create_function()
-                , implode(', :', $mutable_keys)
-            );
-        } 
-        else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
+                    implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
+                    , $info->get_create_function()
+                    , implode(', :', $mutable_keys)
+                    );
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+        }  
+        else if (!is_null($info->get_view())) 
         {
+            // INSERT 
+            $key_fields = array_keys($entity[Entity_Root::VIEW_KEY]->get_children());
+            $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
+                    , $info->get_table() 
+                    , implode(', ', $mutable_keys)
+                    , implode(', :', $mutable_keys)
+                    , implode(', ', $key_fields)
+            );
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $results = $query->execute()->as_array();
+            $row = array_shift($results);
+            
+            // SELECT FROM VIEW
+            $where_clause = array();
+            $row2 = array();
+            foreach ($row as $key => $value)
+            {
+                if (!empty($value))
+                {
+                    $where_clause[] = sprintf(" (%s = :%s) ", $key, $key);
+                    $row2[":$key"] = $value;
+                }
+            }
+
+            $sql = sprintf('SELECT %s FROM %s WHERE %s'
+                    , implode(', ', $returning_fields)
+                    , $info->get_view()
+                    , implode(' AND', $where_clause)
+            );            
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($row2);
+
+        }
+        else if(count($returning_fields) > 0)
+        {
+
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
                 , $info->get_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
-            );
-            
+                , implode(', ', $returning_fields)
+            );            
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
         }
         else
         {
@@ -148,10 +188,9 @@ implements Target_Selectable
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
             );
-            
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
         }
-        $query = $this->query(Database::SELECT, $sql);
-        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
 
         try 
         {
@@ -159,12 +198,7 @@ implements Target_Selectable
             $row = array_shift($results);
             $row = $this->decode($row);
 
-            $selector = new Selector();
-            foreach ($row as $k => $v) {
-                $selector->exact($k, $v);
-            }
-            $created = $this->select($entity, $selector);
-            $entity = array_shift($created);
+            $entity = $this->row_to_entity($entity, $row);
 
         } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
@@ -194,10 +228,10 @@ implements Target_Selectable
         }
 
         $returning_fields = array_merge(
-            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+            array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
+            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
             , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
             , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
         );
 
         if (!is_null($info->get_update_function())) 
@@ -212,8 +246,66 @@ implements Target_Selectable
                 , $info->get_update_function()
                 , implode(', :', $sp_parameter_fields)
             );
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+
         } 
-        else if(count($entity[Entity_Root::VIEW_KEY]->get_children()) > 0)
+        else if (!is_null($info->get_view())) 
+        {
+            // INSERT 
+            $query = $selector->build_target_query($entity, $this, $query);
+            $where = $query['WHERE_CLAUSE'];
+            
+            $key_fields = array_keys($entity[Entity_Root::VIEW_KEY]->get_children());
+                
+            $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s' 
+                , $info->get_table()
+                , implode(', ', array_map(
+                    function($abc) {return sprintf('"%s" = :%s', $abc, $abc);}
+                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                ))
+                , implode(', ', $where)
+                , implode(', ', $key_fields)
+            );
+
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+            
+            $results = $query->execute()->as_array();
+            $row = array_shift($results);
+            
+            // SELECT FROM VIEW
+            $where_clause = array();
+            $row2 = array();
+            foreach ($row as $key => $value)
+            {
+                if (!empty($value))
+                {
+                    $where_clause[] = sprintf(" (%s = :%s) ", $key, $key);
+                    $row2[":$key"] = $value;
+                }
+            }
+
+            $sql = sprintf('SELECT %s FROM %s WHERE %s'
+                    , implode(', ', $returning_fields)
+                    , $info->get_view()
+                    , implode(' AND', $where_clause)
+            );            
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($row2);
+
+
+        }
+        else if(count($returning_fields) > 0)
         {
             $query = $selector->build_target_query($entity, $this, $query);
             $where = $query['WHERE_CLAUSE'];
@@ -225,8 +317,14 @@ implements Target_Selectable
                     , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
                 ))
                 , implode(', ', $where)
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
+                , implode(', ', $returning_fields)
             );
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+
         }
         else
         {
@@ -241,15 +339,15 @@ implements Target_Selectable
                 ))
                 ,  implode(', ', $where)
             );
+            $query = $this->query(Database::SELECT, $sql);
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+
         }
 
 
-        $query = $this->query(Database::SELECT, $sql);
-
-        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-        $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-        $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
-        $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
         $results = $query->execute()->as_array();
 
         try 
@@ -258,17 +356,15 @@ implements Target_Selectable
             $row = array_shift($results);
             $row = $this->decode($row);
 
-            $selector = new Selector();
-            foreach ($row as $k => $v) {
-                $selector->exact($k, $v);
-            }
-            $out = $this->select($entity, $selector);
         } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
+//        } catch (Exception $e) {
+//            throw new HTTP_Exception_500($sql . "\n0000\n " . var_export($row, true) . $e->getMessage() );
         }
 
         Logger::reset('validation');
-        return $out;
+
+        return array($this->row_to_entity($entity, $row));
     }
 
 
@@ -417,17 +513,21 @@ implements Target_Selectable
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
             $entity = clone $this->select_entity;
-//            $info = $entity->get_root()->get_target_info($this);
 
-            $entity[Entity_Root::VIEW_KEY] = $row;
-            $entity[Entity_Root::VIEW_TS] = $row;
-            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
-            $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
-            $entity[Target_Pgsql::VIEW_OPTIONAL] = $row;
-
-            return $entity;
+            return $this->row_to_entity($entity, $row);
         }
         return false;
+    }
+
+    private function row_to_entity($entity, $row)
+    {
+        $entity[Entity_Root::VIEW_KEY] = $row;
+        $entity[Entity_Root::VIEW_TS] = $row;
+        $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
+        $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
+        $entity[Target_Pgsql::VIEW_OPTIONAL] = $row;
+
+        return $entity;
     }
 
     public function count_rows() 
@@ -822,7 +922,7 @@ implements Target_Selectable
       
     private function query($mode, $sql)
     {
-         //error_log( $sql );
+        error_log( $sql );
         //echo $sql;
         
         if(!is_null($this->_debug_db))
