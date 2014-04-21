@@ -922,7 +922,7 @@ implements Target_Selectable
       
     private function query($mode, $sql)
     {
-        error_log( $sql );
+        // error_log( $sql );
         //echo $sql;
         
         if(!is_null($this->_debug_db))
