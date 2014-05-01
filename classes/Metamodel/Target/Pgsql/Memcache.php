@@ -12,12 +12,10 @@ extends Target_Pgsql
 {
     
     /**
-     * memcache 
-     *
-     * @var Memcache Object
-     * @access protected
+     * @var Kohana Cache Object
+     * @access protected 
      */
-    protected $memcache;
+    protected $kohanaCache;
 
     /**
      * Constructor
@@ -28,10 +26,9 @@ extends Target_Pgsql
     public function __construct($debugdb = null)
     {
         parent::__construct($debugdb);
-
-        $this->memcache = new Memcache;
-        $this->memcache->connect(Kohana::$config->load('memcache.cache_host')
-            , Kohana::$config->load('memcache.cache_port'));
+        
+        $this->kohanaCache = Cache::instance('kohanaCache');
+        
     }
 
     /**
@@ -59,7 +56,7 @@ extends Target_Pgsql
     protected function get_cache(Entity_Row $entity, Selector $selector)
     {
         $key = $this->get_key($entity, $selector);
-        if ($cache = $this->memcache->get($key))
+        if ($cache = $this->kohanaCache->get($key))
         {
             error_log("MEMCACHE :: GET :: $key ");
 
@@ -82,8 +79,9 @@ extends Target_Pgsql
         $key = $this->get_key($entity, $selector);
         if (count($value) == 1)
         {
-            error_log("MEMCACHE :: SET :: $key ");
-            return $this->memcache->set($key, serialize($value), 0, Kohana::$config->load('memcache.db_cache_ttl'));
+            error_log("KOHANACACHE :: SET :: $key ");
+            $cache_ttl = Kohana::$config->load('cache.kohanaCache.default_expire');
+            return $this->kohanaCache->set($key, serialize($value), $cache_ttl);
         }
         return false;
     }
@@ -124,7 +122,7 @@ extends Target_Pgsql
             $cache_selector->strike($field);
         }
 
-        $this->memcache->delete($this->get_key($entity, $cache_selector));
+        $this->kohanaCache->delete($this->get_key($entity, $cache_selector));
 
         $results = parent::update($entity, $selector);
 
@@ -142,7 +140,7 @@ extends Target_Pgsql
      */
     public function remove(Entity_Row $entity, Selector $selector)    
     {
-        $this->memcache->delete($this->get_key($entity, $selector));
+        $this->kohanaCache->delete($this->get_key($entity, $selector));
         return parent::remove($entity, $selector);
     }
 
