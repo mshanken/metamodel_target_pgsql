@@ -998,20 +998,17 @@ implements Target_Selectable
                 else if ($type instanceof Type_String) 
                 {
                     $value = trim($value);
-                    if (empty($value))
+                    if (strlen($value) == 0)
                     {
                         $result[$name] = NULL; // a null char
-                        // $result[$name] = 'NULL'; // a literal
                     }
                     else
                     {
                         $result[$name] = $value;
-                        // $result[$name] = pg_escape_string($value);
                     }
                 }
                 else if ($type instanceof Type_Boolean) 
                 {
-                    // encode boolean to string value
                     $result[$name] = $value ? 'true' : 'false';
                 }
             }
