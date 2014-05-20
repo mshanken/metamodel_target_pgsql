@@ -58,7 +58,7 @@ extends Target_Pgsql
         $key = $this->get_key($entity, $selector);
         if ($cache = $this->kohanaCache->get($key))
         {
-            error_log("MEMCACHE :: GET :: $key ");
+            error_log("KOHANACACHE :: GET :: $key ");
 
             return unserialize($cache);
         }
