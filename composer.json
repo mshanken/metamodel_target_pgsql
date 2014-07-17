@@ -10,7 +10,7 @@
         "kohana/core": ">=3.3",
         "kohana/unittest"   : "3.3.*",
         "kohana/database"   : "3.3.*",
-        mshanken/metamodel : "*",
+        "mshanken/metamodel" : "*",
         "php": ">=5.3.3"
     }
 }
