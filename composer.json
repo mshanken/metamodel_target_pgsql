@@ -12,5 +12,5 @@
         "kohana/database"   : "3.3.*",
         mshanken/metamodel : "*",
         "php": ">=5.3.3"
-    },
+    }
 }
