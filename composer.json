@@ -1,6 +1,6 @@
 {
     "name":        "mshanken/metamodel_target_pgsql",
-    "type": "metamodel_target",
+    "type": "kohana-module",
     "description": "Driver for metamodel to interact with PostgreSQL",
     "homepage":    "https://github.com/mshanken/metamodel_target_pgsql",
     "license":     "BSD+",
