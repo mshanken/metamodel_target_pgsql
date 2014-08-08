@@ -12,7 +12,7 @@
 
 Class Metamodel_Target_Pgsql 
 extends Model_Database
-implements Target_Selectable
+implements Metamodel_Target
 {
     /**
      * Immutable columns are those which are not updatable by clients of this code.  Key and
@@ -44,18 +44,18 @@ implements Target_Selectable
         $this->_debug_db = $debug_db;
     }
     
-    public function validate_entity(Entity_Row $entity)
+    public function validate_entity(Resource_Record $record)
     {
-        return $entity instanceof Target_Pgsqlable;    
+        return $record instanceof Target_Pgsqlable;    
     }
 
     /**
      * implements selectable
      */
-    public function select(Entity_Row $entity, Selector $selector = null)
+    public function select(Resource_Record $record, Selector $selector = null)
     {
-        $entity = clone $entity;
-        $this->select_deferred($entity, $selector);
+        $record = clone $record;
+        $this->select_deferred($record, $selector);
         $output = array();
         while ($curr = $this->next_row())
         {
@@ -67,29 +67,21 @@ implements Target_Selectable
     /**
      * implements selectable
      */
-    public function select_count(Entity_Row $entity, Selector $selector = null)
+    public function select_count(Resource_Record $record, Selector $selector = null)
     {
-        $entity = clone $entity;
-        $info = $entity->get_root()->get_target_info($this);
-        $query = array();
+        $record = clone $record;
         
-        $sql = sprintf('SELECT count(*) AS count FROM %s', $info->get_view());            
+        $sql = sprintf('SELECT count(*) AS count FROM %s', $record->get_root()->pgsql_view());            
         if (!is_null($selector)) 
         {
-            if ($query = $selector->build_target_query($entity, $this, $query))
+            if ($query = $selector->build_target_query($record, $this))
             {
-                if(is_array($query['WHERE_CLAUSE']))
-                {    
-                    $where = implode(', ', $query['WHERE_CLAUSE']);    
-                    
-                    if (!empty($where))
+                    if (!empty($query->where()))
                     {
-                        $sql = sprintf('%s WHERE %s', $sql, $where);
+                        $sql = sprintf('%s WHERE %s', $sql, $query->where());
                     }
-                    
-                }
             }
-            // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($entity, $this), $selector->build_target_page($entity, $this));
+            // $sql = sprintf('%s %s %s', $sql, $selector->build_target_sort($record, $this), $selector->build_target_page($record, $this));
         }
 
         $results = $this->query(Database::SELECT, $sql)->execute()->as_array();
@@ -100,14 +92,13 @@ implements Target_Selectable
      * implements selectable
      *
      * this function will attempt to create a new row in the postgresql db
-     * from the contents of $entity[pgsql_mutable + key + timestamp] 
+     * from the contents of $record[pgsql_mutable + key + timestamp] 
      *
      */
-    public function create(Entity_Row $entity) 
+    public function create(Resource_Record $record) 
     {   
-        $entity = clone $entity;
-        $info = $entity->get_root()->get_target_info($this);
-        $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
+        $record = clone $record;
+        $record[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
         if(!empty($problems))
         {
@@ -115,36 +106,36 @@ implements Target_Selectable
         }
 
         $returning_fields = array_merge(
-            array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
+            array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
+            , array_keys($record[Resource_Representation::KEY]->me()->get_children())
+            , array_keys($record[Resource_Representation::TS]->me()->get_children())
+            , array_keys($record[Target_Pgsql::VIEW_IMMUTABLE]->me()->get_children())
             );
 
-        $mutable_keys = array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children());
+        $mutable_keys = array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children());
 
-        if (!is_null($info->get_create_function())) 
+        if (!is_null($record->get_root()->pgsql_create_function())) 
         { 
             $sql = sprintf('SELECT %s FROM %s(:%s)',
-                    implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
-                    , $info->get_create_function()
+                    implode(', ', array_keys($record[Resource_Representation::KEY]->me()->get_children()))
+                    , $record->get_root()->pgsql_create_function()
                     , implode(', :', $mutable_keys)
                     );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
         }  
-        else if (!is_null($info->get_view())) 
+        else if (!is_null($record->get_root()->pgsql_view())) 
         {
             // INSERT 
-            $key_fields = array_keys($entity[Entity_Root::VIEW_KEY]->get_children());
+            $key_fields = array_keys($record[Resource_Representation::KEY]->me()->get_children());
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
-                    , $info->get_table() 
+                    , $record->get_root()->pgsql_table() 
                     , implode(', ', $mutable_keys)
                     , implode(', :', $mutable_keys)
                     , implode(', ', $key_fields)
             );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
             $results = $query->execute()->as_array();
             $row = array_shift($results);
             
@@ -162,7 +153,7 @@ implements Target_Selectable
 
             $sql = sprintf('SELECT %s FROM %s WHERE %s'
                     , implode(', ', $returning_fields)
-                    , $info->get_view()
+                    , $record->get_root()->pgsql_view()
                     , implode(' AND', $where_clause)
             );            
             $query = $this->query(Database::SELECT, $sql);
@@ -173,23 +164,23 @@ implements Target_Selectable
         {
 
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s) RETURNING %s'
-                , $info->get_table() 
+                , $record->get_root()->pgsql_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
                 , implode(', ', $returning_fields)
             );            
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
         }
         else
         {
             $sql = sprintf('INSERT INTO %s (%s) VALUES (:%s)'
-                , $info->get_table() 
+                , $record->get_root()->pgsql_table() 
                 , implode(', ', $mutable_keys)
                 , implode(', :', $mutable_keys) 
             );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
         }
 
         try 
@@ -198,14 +189,14 @@ implements Target_Selectable
             $row = array_shift($results);
             $row = $this->decode($row);
 
-            $entity = $this->row_to_entity($entity, $row);
+            $record = $this->row_to_entity($record, $row);
 
         } catch (Kohana_Database_Exception $e) {
             $this->handle_exception($e);
         }
 
         Logger::reset('validation');
-        return $entity;    
+        return $record;    
     }
 
     /**
@@ -214,11 +205,10 @@ implements Target_Selectable
      * if the view has no key/timestamp we add them to the end for updateFunctions
      *
      */
-    public function update(Entity_Row $entity, Selector $selector)
+    public function update(Resource_Record $record, Selector $selector)
     {
-        $entity = clone $entity;
-        $info = $entity->get_root()->get_target_info($this);
-        $entity[Target_Pgsql::VIEW_MUTABLE]->validate();
+        $record = clone $record;
+        $record[Target_Pgsql::VIEW_MUTABLE]->validate();
         $problems = Logger::get('validation');
         $query = array();
         
@@ -228,54 +218,54 @@ implements Target_Selectable
         }
 
         $returning_fields = array_merge(
-            array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
+            array_keys($record[Target_Pgsql::VIEW_IMMUTABLE]->me()->get_children())
+            , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
+            , array_keys($record[Resource_Representation::KEY]->me()->get_children())
+            , array_keys($record[Resource_Representation::TS]->me()->get_children())
         );
 
-        if (!is_null($info->get_update_function())) 
+        if (!is_null($record->get_root()->pgsql_update_function())) 
         { 
             $sp_parameter_fields = array_merge(
-                array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
-                , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
-                , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                array_keys($record[Resource_Representation::KEY]->me()->get_children())
+                , array_keys($record[Resource_Representation::TS]->me()->get_children())
+                , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
             );
             $sql = sprintf('SELECT %s FROM %s(:%s)'
-                , implode(', ', array_keys($entity[Entity_Root::VIEW_KEY]->get_children()))
-                , $info->get_update_function()
+                , implode(', ', array_keys($record[Resource_Representation::KEY]->me()->get_children()))
+                , $record->get_root()->pgsql_update_function()
                 , implode(', :', $sp_parameter_fields)
             );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::KEY]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::TS]));
 
         } 
-        else if (!is_null($info->get_view())) 
+        else if (!is_null($record->get_root()->pgsql_view())) 
         {
             // INSERT 
-            $query = $selector->build_target_query($entity, $this, $query);
+            $query = $selector->build_target_query($record, $this, $query);
             $where = $query['WHERE_CLAUSE'];
             
-            $key_fields = array_keys($entity[Entity_Root::VIEW_KEY]->get_children());
+            $key_fields = array_keys($record[Resource_Representation::KEY]->me()->get_children());
                 
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s' 
-                , $info->get_table()
+                , $record->get_root()->pgsql_table()
                 , implode(', ', array_map(
                     function($abc) {return sprintf('"%s" = :%s', $abc, $abc);}
-                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                    , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
                 ))
                 , implode(', ', $where)
                 , implode(', ', $key_fields)
             );
 
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::KEY]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::TS]));
             
             $results = $query->execute()->as_array();
             $row = array_shift($results);
@@ -294,56 +284,56 @@ implements Target_Selectable
 
             $sql = sprintf('SELECT %s FROM %s WHERE %s'
                     , implode(', ', $returning_fields)
-                    , $info->get_view()
+                    , $record->get_root()->pgsql_view()
                     , implode(' AND', $where_clause)
             );            
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::KEY]));
             $query->parameters($row2);
 
 
         }
         else if(count($returning_fields) > 0)
         {
-            $query = $selector->build_target_query($entity, $this, $query);
+            $query = $selector->build_target_query($record, $this, $query);
             $where = $query['WHERE_CLAUSE'];
                 
             $sql = sprintf('UPDATE %s SET %s WHERE %s RETURNING %s'
-                , $info->get_table()
+                , $record->get_root()->pgsql_table()
                 , implode(', ', array_map(
                     function($abc) {return sprintf('"%s" = :%s', $abc, $abc);}
-                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                    , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
                 ))
                 , implode(', ', $where)
                 , implode(', ', $returning_fields)
             );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::KEY]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::TS]));
 
         }
         else
         {
-            $query = $selector->build_target_query($entity, $this, $query);
+            $query = $selector->build_target_query($record, $this, $query);
             $where = $query['WHERE_CLAUSE'];
                 
             $sql = sprintf('UPDATE %s SET %s WHERE %s'
-                , $info->get_table()
+                , $record->get_root()->pgsql_table()
                 , implode(', ', array_map(
                     function($a) {return sprintf('"%s" = :%s', $a, $a);}
-                    , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
+                    , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
                 ))
                 ,  implode(', ', $where)
             );
             $query = $this->query(Database::SELECT, $sql);
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_MUTABLE]));
-            $query->parameters($this->PDO_params($entity[Target_Pgsql::VIEW_IMMUTABLE]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_KEY]));
-            $query->parameters($this->PDO_params($entity[Entity_Root::VIEW_TS]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_MUTABLE]));
+            $query->parameters($this->PDO_params($record[Target_Pgsql::VIEW_IMMUTABLE]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::KEY]));
+            $query->parameters($this->PDO_params($record[Resource_Representation::TS]));
 
         }
 
@@ -364,7 +354,7 @@ implements Target_Selectable
 
         Logger::reset('validation');
 
-        return array($this->row_to_entity($entity, $row));
+        return array($this->row_to_entity($record, $row));
     }
 
 
@@ -373,15 +363,13 @@ implements Target_Selectable
      *
      * @returns number of deleted rows
      */
-    public function remove(Entity_Row $entity, Selector $selector)
+    public function remove(Resource_Record $record, Selector $selector)
     {
-        $entity = clone $entity;
-        $query = array();
-        $info = $entity->get_root()->get_target_info($this);
-        $query = $selector->build_target_query($entity, $this, $query);
+        $record = clone $record;
+        $query = $selector->build_target_query($record, $this);
         $where = implode(', ', $query['WHERE_CLAUSE']);
 
-        $sql = sprintf('DELETE FROM %s WHERE %s', $info->get_table(), $where);
+        $sql = sprintf('DELETE FROM %s WHERE %s', $record->get_root()->pgsql_table(), $where);
 
         $query = $this->query(Database::DELETE, $sql);
         try 
@@ -428,82 +416,49 @@ implements Target_Selectable
 
 // select helper
 
-    public function select_deferred(Entity_Row $entity, Selector $selector = null)
+    public function select_deferred(Resource_Record $record, Selector $selector = null)
     {
-        $info = $entity->get_root()->get_target_info($this);
-        $query = array();
-        $query = $selector->build_target_query($entity, $this, $query);
+        $query = $selector->build_target_query($record, $this);
        
-
-        if (!is_null($selector)) 
-        {
-           
-            if (empty($query['SORT_BY']))
-            {
-                $query = $selector->build_target_sort($entity, $this, $query);    
-            }
-            $sort_by = '';
-            if(isset($query['SORT_BY']))
-            {
-                $sort_by = $query['SORT_BY'];
-                
-            }
-                
-            $query = $selector->build_target_page($entity, $this, $query);  
-
-            $page_is = '';
-            if(isset($query['LIMIT']))
-            {
-                $page_is = $query['LIMIT'];
-            }    
-              
-           if(isset($query['WHERE_CLAUSE']))
-           {
-               if(is_array($query['WHERE_CLAUSE']))
-               {
-                    if ($where = implode(', ', $query['WHERE_CLAUSE']))
-                    {
-                  
-                      $where = sprintf('WHERE %s', $where);
-                  
-                   }
-               } 
-           }
-    
-       
-        }
-
+           Logger::log('default', 'QUERY HERE............................................................................');
+           Logger::log('default', var_export($query,true));
 
              $returning_fields = array_merge(
-            array_keys($entity[Entity_Root::VIEW_KEY]->get_children())
-            , array_keys($entity[Entity_Root::VIEW_TS]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_MUTABLE]->get_children())
-            , array_keys($entity[Target_Pgsql::VIEW_IMMUTABLE]->get_children())
+            array_keys($record[Resource_Representation::KEY]->me()->get_children())
+            , array_keys($record[Resource_Representation::TS]->me()->get_children())
+            , array_keys($record[Target_Pgsql::VIEW_MUTABLE]->me()->get_children())
+            , array_keys($record[Target_Pgsql::VIEW_IMMUTABLE]->me()->get_children())
             //, $query['SELECT']
         );
         
-        if (!empty($query['SELECT']))
-            $query['SELECT'] = array_merge( $returning_fields, $query['SELECT']);
-        
-        else 
-            $query['SELECT'] = $returning_fields;
+        $query->select($returning_fields);
         
         
-        if (is_null($info->get_view())) {
-
+        if (is_null($record->get_root()->pgsql_view())) {
             throw new HTTP_Exception_500('DEV ERROR, Target_Info has no view or table defined');
         }
-        $sql = sprintf('SELECT %s FROM %s', implode(', ', array_filter($query['SELECT'])), $info->get_view()); 
+
+        $sql = sprintf('SELECT %s FROM %s', implode(', ', $query->select()), $record->get_root()->pgsql_view()); 
+       
+        if(!empty($query->where()))
+        {
+             $sql = sprintf('%s WHERE %s', $sql, $query->where());
+        }
         
-        if(!empty($where))
-             $sql = sprintf('%s %s', $sql, $where);
-         
-          $sql = sprintf('%s %s %s', $sql, $sort_by, $page_is);
+        if ($query->sort())
+        {
+            $sql = sprintf('%s ORDER BY %s', $sql, $query->sort());
+        }
+
+        if ($query->page())
+        {
+            $sql =  sprintf('%s %s', $sql, $query->page());
+        }
 
         $this->select_query = $query;
         $this->select_data = $this->query(Database::SELECT, $sql)->execute()->as_array();
         $this->select_index = 0;
-        $this->select_entity = $entity;
+        $this->select_entity = $record;
     }
 
     public function next_row() 
@@ -512,22 +467,22 @@ implements Target_Selectable
         {
             $row = $this->select_data[$this->select_index++];
             $row = $this->decode($row);
-            $entity = clone $this->select_entity;
+            $record = clone $this->select_entity;
 
-            return $this->row_to_entity($entity, $row);
+            return $this->row_to_entity($record, $row);
         }
         return false;
     }
 
-    private function row_to_entity($entity, $row)
+    private function row_to_entity($record, $row)
     {
-        $entity[Entity_Root::VIEW_KEY] = $row;
-        $entity[Entity_Root::VIEW_TS] = $row;
-        $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
-        $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
-        $entity[Target_Pgsql::VIEW_OPTIONAL] = $row;
+        $record[Resource_Representation::KEY] = $row;
+        $record[Resource_Representation::TS] = $row;
+        $record[Target_Pgsql::VIEW_MUTABLE] = $row;
+        $record[Target_Pgsql::VIEW_IMMUTABLE] = $row;
+        $record[Target_Pgsql::VIEW_OPTIONAL] = $row;
 
-        return $entity;
+        return $record;
     }
 
     public function count_rows() 
@@ -581,36 +536,63 @@ implements Target_Selectable
         return $allowed;
     }
 
+    
+    private function find_alias_value(Resource_Record $record, $entanglement_name)
+    {
+
+        foreach (array(Resource_Representation::KEY, Resource_Representation::TS, Target_Pgsql::VIEW_MUTABLE, Target_Pgsql::VIEW_IMMUTABLE, Target_Pgsql::VIEW_OPTIONAL) as $view)
+        {
+            foreach ($record[$view]->get_children() as $alias => $value)
+            {
+                if ($value->find_by_entanglement_name($entanglement_name))
+                {
+                    return array($alias, $value);
+                }
+            }
+        }
+        return array(null,null);
+    }
+
+
     /**
      * visit_exact
      *
      * satisfy selector visitor interface
      *
-     * @param mixed $entity
+     * @param mixed $record
      * @param mixed $column_storage_name
      * @param array $query
      * @access public
-     * @return void
+     * @return Target_Query
      */
-    public function visit_exact(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
+    public function visit_exact(Resource_Record $record, $entanglement_name, Target_Query $query)
     {
-        $children = $view->get_children();
-        if ($children[$alias] instanceof Type_Number) 
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+        if ($search_value instanceof Resource_Type_Number)
         {
-            $query['WHERE'][] = sprintf("(%s = %s)", $alias, $search_value);
-        } else {
-            $query['WHERE'][] = sprintf("(%s = '%s')", $alias, pg_escape_string($search_value));
+            $query->criteria( sprintf("(%s = %s)", $alias, $search_value) );
+        } 
+        else if (!is_null($search_value)) 
+        {
+            $query->criteria( sprintf("(%s = '%s')", $alias, pg_escape_string($search_value)));
         }
 
         return $query;
     }
 
     /**
-     * satisfy selector visitor interface
+     * visit_search
      *
-     */ 
-    public function visit_search(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @return Target_Query
+     */
+    public function visit_search(Resource_Record $record, $entanglement_name, Target_Query $query)
     {
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+
         $words = explode(' ', $search_value);
         foreach ($words as $token)
         {
@@ -618,130 +600,148 @@ implements Target_Selectable
             // we must handle beginning of string cases...
             // $query['WHERE'][] = sprintf("(%s ILIKE ' %s%%')", $alias, pg_escape_string($token));
 
-            $query['WHERE'][] = sprintf("(%s ILIKE '%%%s%%')", $alias, pg_escape_string($token));
+            $query->criteria( sprintf("(%s ILIKE '%%%s%%')", $alias, pg_escape_string($token)) );
         }
         return $query;
     }
 
     /**
-     * satisfy selector visitor interface
+     * visit_max
      *
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @return Target_Query
      */
-    public function visit_max(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
+    public function visit_max(Resource_Record $record, $entanglement_name, Target_Query $query)
     {
-        $children = $view->get_children();
-        if ($children[$alias] instanceof Type_Number)
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+
+        if ($search_value instanceof Type_Number)
         {
-            $query['WHERE'][] = sprintf("(%s <= %d)", $alias, $search_value);
+            $query->criteria( sprintf("(%s <= %d)", $alias, $search_value) );
+        }
+        else 
+        {
+            // handles dates
+            $query->criteria( sprintf("(%s <= '%s')", $alias, $search_value) );
+        }
+        return $query;
+    }
+
+    /**
+     * visit_min
+     *
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @return Target_Query
+     */
+    public function visit_min(Resource_Record $record, $entanglement_name, Target_Query $query)
+    {
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+        if ($search_value instanceof Type_Number)
+        {
+            $query->criteria( sprintf("(%s >= %d)", $alias, $search_value) );
         }
         else
         {
             // handles dates
-            $query['WHERE'][] = sprintf("(%s <= '%s')", $alias, $search_value);
+            $query->criteria( sprintf("(%s >= '%s')", $alias, $search_value) );
         }
         return $query;
     }
 
     /**
-     * satisfy selector visitor interface
+     * visit_min
      *
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @return Target_Query
      */
-    public function visit_min(Entity_Columnset_Iterator $view, $alias, $search_value, array $query)
+    public function visit_range(Resource_Record $record, $entanglement_name, Target_Query $query)
     {
-        $children = $view->get_children();
-        if ($children[$alias] instanceof Type_Number)
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+        if ($search_value instanceof Type_Number)
         {
-            $query['WHERE'][] = sprintf("(%s >= %d)", $alias, $search_value);
+            $query->criteria( sprintf("(%s BETWEEN %d AND %d)", $alias, $search_value['min'], $search_value['max']) );
         }
         else
         {
             // handles dates
-            $query['WHERE'][] = sprintf("(%s >= '%s')", $alias, $search_value);
-        }
-        return $query;
-    }
-
-    /**
-     * satisfy selector visitor interface
-     *
-     */
-    public function visit_range(Entity_Columnset_Iterator $view, $alias, array $search_value, array $query)
-    {
-        $children = $view->get_children();
-        if ($children[$alias] instanceof Type_Number)
-        {
-            $query['WHERE'][] = sprintf("(%s BETWEEN %d AND %d)", $alias, $search_value['min'], $search_value['max']);
-        }
-        else
-        {
-            // handles dates
-            $query['WHERE'][] = sprintf("(%s BETWEEN '%s' AND '%s')", $alias, $search_value['min'], $search_value['max']);
+            $query->criteria( sprintf("(%s BETWEEN '%s' AND '%s')", $alias, $search_value['min'], $search_value['max']) );
         }
 
         return $query;
     }
 
     /**
-     * satisfy selector visitor interface
+     * visit_range
      *
+     * The geocodes are coded with Spatial Reference system ID (SRID) = 4326 
+     * The output of ST_Distance and ST_DWithin is in degrees, to convert the output in nomal distance
+     * measurements, following conversion units are used
+     * 1 degree = 111128 meters -- dist: displays the distance from the point in meters
+     * 1 kilometer x 0.00899 = degrees -- used to feed the ST_DWithin function
+     * 
+     * 1 degree = 1 latitude = 69.047 statute miles = 60 nautical miles = 111.12 kilometers // http://www.dslreports.com/faq/14295
+     *  
+     * A nautical mile is 1,852 meters, or 1.852 kilometers. 
+     * In the English measurement system, a nautical mile is 1.1508 miles, or 6,076 feet. // http://science.howstuffworks.com/innovation/science-questions/question79.htm
+     *
+     * There from above we can convert
+     * 
+     * 1 degree = 60 x 1.1508 miles = 69.048 miles
+     * 1 Mile = 1/ 60 x 1.1508 = 0.01448
+     * 
+     * If you have to use meters/kilometers in the api use the following multipliers for distance
+     * In ST_Distance function multiply with 111128 ---- which converts degrees output from ST_Distance to Kilometers
+     * and in the params array, multiply the distance with 0.00899 which would convert the kilometers passed from external apps to degrees
+     * 
+     * Similarly, If you have to use miles in the api use the following multipliers for distance
+     * In ST_Distance function multiply with 69.048 ---- which converts degrees output from ST_Distance to Kilometers
+     * and in the params array, multiply the distance with 0.01448 which would convert the kilometers passed from external apps to degrees
+
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @TODO Set the SRID (=4326) in config file, so we do not need to hard-code it
+     * @return Target_Query
      */
-    public function visit_dist_radius(Entity_Columnset_Iterator $view, $alias, array $query, $long, $lat, $radius) 
+    // public function visit_dist_radius(Entity_Columnset_Iterator $view, $alias, array $query, $long, $lat, $radius) 
+    public function visit_dist_radius(Resource_Record $record, $entanglement_name, Target_Query $query, $long, $lat, $radius)
     {
-        /*
-             * The geocodes are coded with Spatial Reference system ID (SRID) = 4326 
-             * The output of ST_Distance and ST_DWithin is in degrees, to convert the output in nomal distance
-             * measurements, following conversion units are used
-             * 1 degree = 111128 meters -- dist: displays the distance from the point in meters
-             * 1 kilometer x 0.00899 = degrees -- used to feed the ST_DWithin function
-             * 
-             * 1 degree = 1 latitude = 69.047 statute miles = 60 nautical miles = 111.12 kilometers // http://www.dslreports.com/faq/14295
-             *  
-             * A nautical mile is 1,852 meters, or 1.852 kilometers. 
-             * In the English measurement system, a nautical mile is 1.1508 miles, or 6,076 feet. // http://science.howstuffworks.com/innovation/science-questions/question79.htm
-             *
-             * There from above we can convert
-             * 
-             * 1 degree = 60 x 1.1508 miles = 69.048 miles
-             * 1 Mile = 1/ 60 x 1.1508 = 0.01448
-             * 
-             * If you have to use meters/kilometers in the api use the following multipliers for distance
-             * In ST_Distance function multiply with 111128 ---- which converts degrees output from ST_Distance to Kilometers
-             * and in the params array, multiply the distance with 0.00899 which would convert the kilometers passed from external apps to degrees
-             * 
-             * Similarly, If you have to use miles in the api use the following multipliers for distance
-             * In ST_Distance function multiply with 69.048 ---- which converts degrees output from ST_Distance to Kilometers
-             * and in the params array, multiply the distance with 0.01448 which would convert the kilometers passed from external apps to degrees
-             * 
-             * 
-             * */    
-        
-        // @@TODO Set the SRID (=4326) in config file, so we do not need to hard-code it
-        $column_name = $alias;
-        
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+
+
         $radius = $radius * .01448;  // converting radius passed in Mile into degrees as required by ST_DWithin function
-        
+
         if (is_numeric($long) && is_numeric($lat) && is_numeric($radius))
         {
-        
-                $children = $view->get_children();
-                
-                if ($children[$alias] instanceof Type_Geometry)
-                {
-                    $query['WHERE'][] = sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
 
-                }
-                elseif ($children[$alias] instanceof Type_Point) 
-                {
-                    $query['WHERE'][] = sprintf("ST_DWithin(ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius);
-               
-                }
-                else {
-                    
-                     throw new Exception ('Wrong data type field paseed to the selector. Selector accepts only Geometry or Point fields ');
-                }
-                 return $query;    
+            $children = $view->me()->get_children();
+
+            if ($children[$alias] instanceof Type_Geometry)
+            {
+                $query->criteria( sprintf("ST_DWithin(%s, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius) );
+
+            }
+            elseif ($children[$alias] instanceof Type_Point) 
+            {
+                $query->criteria( sprintf("ST_DWithin(ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326), %f)", $column_name, $long, $lat, $radius) );
+            }
+            else 
+            {
+                throw new Exception ('Wrong data type field paseed to the selector. Selector accepts only Geometry or Point fields ');
+            }
+            return $query;    
         }
-         
+
     }
 
 
@@ -750,91 +750,57 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function sort_nearby($entity, $column_storage_name, array $query, $long, $lat) 
+    public function sort_nearby($record, $column_storage_name, array $query, $long, $lat) 
     {
         // @TODO why is column name hard coded instead of being defined in a view_optional ?
         // since for geom column which is a geometry type field there is no type defined in metamodel
         // it would be nice to have the geometry type defined in metamodel in order to just pass geom in the selector
         // I am currently using latitude in the selector which is kind of silly, just because I can associate the visit to numeric data type
-        
+
         $column_name = "geom";
-      
+
         if (is_numeric($long) && is_numeric($lat))
         {
-          // $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
+            // $query['SORT_BY'] = sprintf("ORDER BY %s <-> 'SRID=4326;POINT(%f %f)'::geometry,zip", $column_name, $long, $lat);
             $query['SORTS'][] = sprintf("%s <-> 'SRID=4326;POINT(%f %f)'::geometry", $column_storage_name, $long, $lat);;
-            
+
             $query['SELECT'][] = sprintf("round ( cast(((ST_Distance( ST_GeometryFromText('POINT'||regexp_replace(%s::text, ',', ' ')::text, 4326)::geometry, ST_GeometryFromText('POINT(%f %f)',4326))) * 69.048) as numeric), 2)  as distance", $column_storage_name, $long, $lat );
-        
+
         }
         // print_r($query);
-                         
+
 
         return $query;
 
     }
-    
-    
+
+
     /**
-     * satisfy selector visitor interface
+     * visit_dist_radius
      *
+     * @param Resource_Record $record
+     * @param mixed $entanglement_name
+     * @param Target_Query $query
+     * @access public
+     * @return Target_Query
      */
-    public function visit_isnull(Entity_Columnset_Iterator $view, $alias, array $query) 
+    public function visit_isnull(Resource_Record $record, $entanglement_name, Target_Query $query)
     {
-        $query['WHERE'][] = sprintf("(%s IS NULL)", $alias);
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+
+        $query->criteria( sprintf("(%s IS NULL)", $alias) );
         return $query;
     }
 
     /**
      * satisfy selector visitor interface
-     * @TODO remove unused $entity param
      */
-    public function visit_operator_and(array $query) 
+    public function visit_operator_and(Target_Query $query) 
     {
-        $parts = array();
-        if(!empty($query['WHERE'])) 
+        if (!empty($query->criteria()))
         {
-            $parts = $query['WHERE'];    
-
-            $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') AND (', $parts));
-
+            $query->where( sprintf('(%s)', implode(') AND (', $query->criteria())) );
         }
-        //print_r($query);
-
-
-        return $query;
-    }
-
-    /**
-     * satisfy selector visitor interface
-     * @TODO remove unused $entity param
-     *
-     */
-    public function visit_operator_or(array $query) 
-    {
-        $parts = array();
-        if(!empty($query['WHERE'])) 
-        {    
-            $parts = $query['WHERE'];    
-            $query['WHERE_CLAUSE'][] = sprintf('(%s)', implode(') OR (', $parts));
-        }
-
-
-        return $query;
-    }
-
-    /**
-     * satisfy selector visitor interface
-     * @TODO remove unused $entity param
-     */
-    public function visit_operator_not(array $query) 
-    {
-        //return sprintf('NOT (%s)', $part);
-        if (count($query['WHERE']) > 1) throw new Exception ('selector operation not cannot accept multiple parts');
-
-        $part = $query['WHERE'][0];
-        $query['WHERE_CLAUSE'][] = sprintf('NOT (%s)', $part);
-
         return $query;
     }
 
@@ -842,59 +808,59 @@ implements Target_Selectable
      * satisfy selector visitor interface
      *
      */
-    public function visit_sort($entity, array $items, array $query) 
+    public function visit_operator_or(Target_Query $query) 
     {
-            foreach($items as $current)
-            {
-                    
-                    $alias = "";    
-    
-                    //$current = explode(', ', $current);
-    
-                    list($column_name, $direction, $coordinates) = $current;
-    
-                    // get name of the column name as seen by Target Pgsql
-                    $alias = $entity[Target_Pgsql::VIEW_MUTABLE]->lookup_entanglement_name($column_name);
-    
-                    if(!$alias)    
-                    {
-                        $alias = $entity[Target_Pgsql::VIEW_IMMUTABLE]->lookup_entanglement_name($column_name);
-    
-                    }
-    
-                    if(!$alias)
-                    {
-                        if(isset($entity[Target_Pgsql::VIEW_OPTIONAL]))
-                            $alias = $entity[Target_Pgsql::VIEW_OPTIONAL]->lookup_entanglement_name($column_name);
-                    }
-                    if(!empty($alias) && !is_array($current[2]))
-                    {
-                        $query['SORTS'][] = sprintf('%s %s'
-                            , $alias
-                            , ($direction == 'desc') ? 'DESC' : 'ASC'
-                            );
-                    }
-                    elseif(!empty($alias) && is_array($current[2])) 
-                    {
-                        //this is a special case for k nearest neighbors search using postgis KNN index
-                        
-                        $long = $coordinates[0];
-                        $lat = $coordinates[1];
-                    
-                        $query = $this->sort_nearby($entity, $alias, $query, $long, $lat);
-                    
-                    
-                    }
-                }
-               
-         
+        if (!empty($query->criteria()))
+        {
+            $query->where( sprintf('(%s)', implode(') OR (', $query->criteria())) );
+        }
         return $query;
     }
 
-    public function visit_page($limit, $offset = 0, array $query)
+    /**
+     * satisfy selector visitor interface
+     */
+    public function visit_operator_not(Target_Query $query) 
+    {
+        $parts = $query->criteria();
+        if (count($parts) != 1)
+        {
+            throw new Exception ('selector operation not cannot accept multiple parts');
+        }
+
+        $query->where(sprintf('NOT (%s)', end($parts)) );
+        return $query;
+    }
+
+    /**
+     * satisfy selector visitor interface
+     *
+     */
+    public function visit_sort(Resource_Record $record, $entanglement_name, array $info, Target_Query $query)
+        // public function visit_sort($record, array $item, array $query) 
+    {
+        list($alias, $search_value) = $this->find_alias_value($record, $entanglement_name);
+        list($direction, $coordinates) = $info;
+        if(!empty($direction) && !is_array($coordinates))
+        {
+            $query->sort_criteria( sprintf('%s %s', $alias, $direction));
+        }
+        else
+        {
+            $long = $coordinates[0];
+            $lat = $coordinates[1];
+
+            $query = $this->sort_nearby($record, $alias, $query, $long, $lat);
+
+        }
+        return $query;
+    }
+
+    public function visit_page($limit, $offset = 0, Target_Query $query)
     {
         if (empty($limit)) return $query;
-        $query['LIMIT'] = sprintf('LIMIT %d OFFSET %d', $limit, $offset);
+Logger::log('debug', 'LIMIT '.$limit);
+        $query->page(sprintf('LIMIT %d OFFSET %d', $limit, $offset));
         return $query;
     }
 
@@ -902,17 +868,17 @@ implements Target_Selectable
      * Helper for the visit_*() interface that builds WHERE clauses out of selectors.
      * Responsible for looking up an actual column name as it is seen by Postgres.
      */
-    public function lookup_entanglement_name($entity, $column_storage_name)
+    public function lookup_entanglement_name($record, $column_storage_name)
     {
-        foreach(array(Entity_Root::VIEW_KEY, Entity_Root::VIEW_TS, Target_Pgsql::VIEW_MUTABLE, Target_Pgsql::VIEW_IMMUTABLE,) as $view_name)
+        foreach(array(Resource_Representation::KEY, Resource_Representation::TS, Target_Pgsql::VIEW_MUTABLE, Target_Pgsql::VIEW_IMMUTABLE,) as $view_name)
         {
-            if ($alias = $entity[$view_name]->lookup_entanglement_name($column_storage_name))
+            if ($alias = $record[$view_name]->lookup_entanglement_name($column_storage_name))
             {
                 return array($view_name,$alias);
             }
         }
 
-        throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $entity->get_root()->get_name() . "\".");
+        throw new HTTP_Exception_400("Unknown column \"" . $column_storage_name . "\" in entity \"" . $record->get_root()->get_name() . "\".");
     }
 
     /**
@@ -922,7 +888,7 @@ implements Target_Selectable
       
     private function query($mode, $sql)
     {
-        // error_log( $sql );
+        error_log( $sql );
         //echo $sql;
         
         if(!is_null($this->_debug_db))
@@ -946,7 +912,7 @@ implements Target_Selectable
      */
     public function encode(Entity_Structure $view)
     {
-        $children = $view->get_children();
+        $children = $view->me()->get_children();
 
         $view->validate();
 
@@ -1128,7 +1094,7 @@ implements Target_Selectable
     /**
      * run some custom sql, return the result
      */
-    public function select_custom(Entity_Row $template_entity, $sql, array $params = array()) 
+    public function select_custom(Resource_Record $template_entity, $sql, array $params = array()) 
     {
         $query = $this->query(Database::SELECT, $sql);
         $query->parameters($params);
@@ -1145,13 +1111,13 @@ implements Target_Selectable
 
             $row = $this->decode($row);
 
-            $entity = clone $template_entity;
-            $entity[Entity_Root::VIEW_KEY] = $row;
-            $entity[Entity_Root::VIEW_TS] = $row;
-            $entity[Target_Pgsql::VIEW_MUTABLE] = $row;
-            $entity[Target_Pgsql::VIEW_IMMUTABLE] = $row;
+            $record = clone $template_entity;
+            $record[Resource_Representation::KEY] = $row;
+            $record[Resource_Representation::TS] = $row;
+            $record[Target_Pgsql::VIEW_MUTABLE] = $row;
+            $record[Target_Pgsql::VIEW_IMMUTABLE] = $row;
 
-            $entities[] = $entity;
+            $entities[] = $record;
         }
 
         return $entities;
@@ -1162,10 +1128,10 @@ implements Target_Selectable
         return NULL;
     }
 
-    public function is_selectable(Entity_Row $row, $entanglement_name, array $allowed)
+    public function is_selectable(Resource_Record $row, $entanglement_name, array $allowed)
     {
-        foreach (array(Entity_Root::VIEW_KEY
-                    , Entity_Root::VIEW_TS
+        foreach (array(Resource_Representation::KEY
+                    , Resource_Representation::TS
                     , Target_Pgsql::VIEW_MUTABLE
                     , Target_Pgsql::VIEW_IMMUTABLE
                     , Target_Pgsql::VIEW_OPTIONAL) as $view)
@@ -1178,7 +1144,7 @@ implements Target_Selectable
         return false;
     }
 
-    public function add_selectable(Entity_Store $entity, Selector $selector)
+    public function add_selectable(Entity_Store $record, Selector $selector)
     {
         return true;
     }
